@@ -1,5 +1,6 @@
 import { Calendar, Clock, Users, MapPin } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { AnimatedIcon } from '@/components/ui/animated-icon';
 
 interface Event {
   id: string;
@@ -72,9 +73,14 @@ export function UpcomingEvents() {
   return (
     <div className="card-elevated p-5 animate-slide-up">
       <div className="flex items-center justify-between mb-5">
-        <div>
-          <h3 className="font-semibold text-foreground">Próximos Eventos</h3>
-          <p className="text-sm text-muted-foreground mt-0.5">Agenda dos próximos cultos</p>
+        <div className="flex items-center gap-3">
+          <AnimatedIcon color="primary" animation="bounce" size="md">
+            <Calendar className="w-5 h-5" />
+          </AnimatedIcon>
+          <div>
+            <h3 className="font-semibold text-foreground">Próximos Eventos</h3>
+            <p className="text-sm text-muted-foreground mt-0.5">Agenda dos próximos cultos</p>
+          </div>
         </div>
         <button className="text-sm text-primary font-medium hover:underline">
           Ver agenda completa
@@ -88,10 +94,10 @@ export function UpcomingEvents() {
           return (
             <div 
               key={event.id}
-              className="flex items-center gap-4 p-4 rounded-2xl bg-muted/40 hover:bg-muted/60 transition-all cursor-pointer"
+              className="flex items-center gap-4 p-4 rounded-2xl bg-muted/40 hover:bg-muted/60 transition-all cursor-pointer group"
             >
               {/* Date Badge */}
-              <div className="w-14 h-14 rounded-2xl bg-primary/10 flex flex-col items-center justify-center flex-shrink-0">
+              <div className="w-14 h-14 rounded-2xl bg-primary/10 flex flex-col items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform">
                 <span className="text-[10px] text-primary font-semibold uppercase tracking-wide">
                   {event.date.split(' ')[1]}
                 </span>
@@ -121,7 +127,7 @@ export function UpcomingEvents() {
 
               {/* Status Badge */}
               <span className={cn(
-                "px-4 py-1.5 rounded-full text-xs font-semibold flex-shrink-0",
+                "px-4 py-1.5 rounded-full text-xs font-semibold flex-shrink-0 transition-transform group-hover:scale-105",
                 status.bg, status.text
               )}>
                 {status.label}

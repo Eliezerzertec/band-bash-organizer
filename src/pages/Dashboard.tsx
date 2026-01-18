@@ -12,7 +12,8 @@ import {
   Music, 
   ArrowLeftRight,
   Church,
-  UsersRound
+  UsersRound,
+  MessageSquare
 } from 'lucide-react';
 
 export default function Dashboard() {
@@ -26,7 +27,7 @@ export default function Dashboard() {
     >
       <div className="space-y-6">
         {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
           {isAdmin ? (
             <>
               <StatCard
@@ -35,12 +36,14 @@ export default function Dashboard() {
                 change={12}
                 icon={<Users className="w-6 h-6" />}
                 variant="primary"
+                animation="float"
               />
               <StatCard
                 title="Próximos Cultos"
                 value="8"
                 icon={<Calendar className="w-6 h-6" />}
                 variant="success"
+                animation="bounce"
               />
               <StatCard
                 title="Equipes Ativas"
@@ -48,6 +51,7 @@ export default function Dashboard() {
                 change={2}
                 icon={<UsersRound className="w-6 h-6" />}
                 variant="accent"
+                animation="pulse"
               />
               <StatCard
                 title="Substituições Pendentes"
@@ -55,6 +59,7 @@ export default function Dashboard() {
                 change={-15}
                 icon={<ArrowLeftRight className="w-6 h-6" />}
                 variant="warning"
+                animation="wiggle"
               />
             </>
           ) : (
@@ -64,24 +69,28 @@ export default function Dashboard() {
                 value="5"
                 icon={<Calendar className="w-6 h-6" />}
                 variant="primary"
+                animation="float"
               />
               <StatCard
                 title="Próximo Culto"
                 value="Dom, 19h"
                 icon={<Music className="w-6 h-6" />}
                 variant="success"
+                animation="bounce"
               />
               <StatCard
                 title="Pedidos Pendentes"
                 value="1"
                 icon={<ArrowLeftRight className="w-6 h-6" />}
                 variant="warning"
+                animation="wiggle"
               />
               <StatCard
                 title="Mensagens"
                 value="3"
-                icon={<Music className="w-6 h-6" />}
+                icon={<MessageSquare className="w-6 h-6" />}
                 variant="accent"
+                animation="pulse"
               />
             </>
           )}

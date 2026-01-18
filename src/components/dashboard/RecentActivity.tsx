@@ -7,6 +7,7 @@ import {
   MessageSquare 
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { AnimatedIcon } from '@/components/ui/animated-icon';
 
 interface Activity {
   id: string;
@@ -54,13 +55,20 @@ const mockActivities: Activity[] = [
   },
 ];
 
-const activityIcons = {
-  member_added: { icon: UserPlus, color: 'bg-primary/12 text-primary' },
-  schedule_created: { icon: Calendar, color: 'bg-success/12 text-success' },
-  sub_request: { icon: ArrowLeftRight, color: 'bg-warning/12 text-warning' },
-  sub_accepted: { icon: CheckCircle, color: 'bg-success/12 text-success' },
-  sub_rejected: { icon: XCircle, color: 'bg-destructive/12 text-destructive' },
-  message: { icon: MessageSquare, color: 'bg-accent/12 text-accent' },
+type ColorVariant = 'primary' | 'success' | 'warning' | 'accent' | 'info' | 'purple';
+type AnimationType = 'pulse' | 'bounce' | 'spin' | 'wiggle' | 'float' | 'glow' | 'none';
+
+const activityConfig: Record<Activity['type'], { 
+  icon: React.ComponentType<{ className?: string }>; 
+  color: ColorVariant;
+  animation: AnimationType;
+}> = {
+  member_added: { icon: UserPlus, color: 'primary', animation: 'bounce' },
+  schedule_created: { icon: Calendar, color: 'success', animation: 'pulse' },
+  sub_request: { icon: ArrowLeftRight, color: 'warning', animation: 'wiggle' },
+  sub_accepted: { icon: CheckCircle, color: 'success', animation: 'glow' },
+  sub_rejected: { icon: XCircle, color: 'accent', animation: 'none' },
+  message: { icon: MessageSquare, color: 'info', animation: 'float' },
 };
 
 export function RecentActivity() {
@@ -78,19 +86,21 @@ export function RecentActivity() {
 
       <div className="space-y-4">
         {mockActivities.map((activity) => {
-          const { icon: Icon, color } = activityIcons[activity.type];
+          const { icon: Icon, color, animation } = activityConfig[activity.type];
           
           return (
             <div 
               key={activity.id}
-              className="flex items-start gap-3 group"
+              className="flex items-start gap-3 group cursor-pointer"
             >
-              <div className={cn(
-                "w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 transition-transform group-hover:scale-105",
-                color
-              )}>
+              <AnimatedIcon 
+                color={color}
+                animation={animation}
+                size="sm"
+                className="group-hover:scale-110 transition-transform"
+              >
                 <Icon className="w-4 h-4" />
-              </div>
+              </AnimatedIcon>
               
               <div className="flex-1 min-w-0">
                 <p className="text-sm text-foreground leading-snug">
