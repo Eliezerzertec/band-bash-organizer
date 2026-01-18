@@ -9,79 +9,21 @@ import {
   ChevronRight,
   Clock,
   MapPin,
-  Users
+  Users,
+  Loader2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-
-interface Event {
-  id: string;
-  title: string;
-  date: Date;
-  time: string;
-  location: string;
-  team: string;
-  status: 'scheduled' | 'confirmed' | 'completed';
-}
-
-const mockEvents: Event[] = [
-  {
-    id: '1',
-    title: 'Culto de Domingo',
-    date: new Date(2026, 0, 19),
-    time: '19:00',
-    location: 'Templo Principal',
-    team: 'Equipe Alpha',
-    status: 'confirmed'
-  },
-  {
-    id: '2',
-    title: 'Célula Jovem',
-    date: new Date(2026, 0, 21),
-    time: '20:00',
-    location: 'Salão Social',
-    team: 'Equipe Beta',
-    status: 'scheduled'
-  },
-  {
-    id: '3',
-    title: 'Culto de Quarta',
-    date: new Date(2026, 0, 22),
-    time: '19:30',
-    location: 'Templo Principal',
-    team: 'Equipe Gamma',
-    status: 'scheduled'
-  },
-  {
-    id: '4',
-    title: 'Ensaio Geral',
-    date: new Date(2026, 0, 25),
-    time: '15:00',
-    location: 'Sala de Ensaio',
-    team: 'Todas as Equipes',
-    status: 'scheduled'
-  },
-  {
-    id: '5',
-    title: 'Culto de Domingo',
-    date: new Date(2026, 0, 26),
-    time: '19:00',
-    location: 'Templo Principal',
-    team: 'Equipe Beta',
-    status: 'scheduled'
-  },
-];
-
-const statusStyles = {
-  scheduled: { bg: 'bg-warning-light', text: 'text-warning', label: 'Agendado' },
-  confirmed: { bg: 'bg-success-light', text: 'text-success', label: 'Confirmado' },
-  completed: { bg: 'bg-muted', text: 'text-muted-foreground', label: 'Concluído' },
-};
+import { useSchedules } from '@/hooks/useSchedules';
+import { Skeleton } from '@/components/ui/skeleton';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 const daysOfWeek = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
 export default function Schedules() {
   const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
-  const [currentMonth, setCurrentMonth] = useState(new Date(2026, 0, 1));
+  const [currentMonth, setCurrentMonth] = useState(new Date());
+  const { data: schedules, isLoading, error } = useSchedules();
 
   const getDaysInMonth = (date: Date) => {
     const year = date.getFullYear();
@@ -107,14 +49,25 @@ export default function Schedules() {
   const days = getDaysInMonth(currentMonth);
 
   const getEventsForDate = (date: Date | null) => {
-    if (!date) return [];
-    return mockEvents.filter(event => 
-      event.date.toDateString() === date.toDateString()
-    );
+    if (!date || !schedules) return [];
+    const dateStr = format(date, 'yyyy-MM-dd');
+    return schedules.filter(schedule => schedule.event_date === dateStr);
   };
 
   const formatMonth = (date: Date) => {
-    return date.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+    return format(date, "MMMM 'de' yyyy", { locale: ptBR });
+  };
+
+  const formatDate = (dateStr: string) => {
+    try {
+      return format(new Date(dateStr), 'dd/MM/yyyy', { locale: ptBR });
+    } catch {
+      return dateStr;
+    }
+  };
+
+  const formatTime = (timeStr: string) => {
+    return timeStr?.slice(0, 5) || '';
   };
 
   return (
@@ -151,7 +104,46 @@ export default function Schedules() {
           </Button>
         </div>
 
-        {viewMode === 'list' ? (
+        {/* Loading State */}
+        {isLoading && (
+          <div className="card-elevated p-6">
+            <div className="space-y-4">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="flex items-center gap-4">
+                  <Skeleton className="h-12 w-full" />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Error State */}
+        {error && (
+          <div className="card-elevated p-12 text-center">
+            <p className="text-destructive">Erro ao carregar escalas: {error.message}</p>
+          </div>
+        )}
+
+        {/* Empty State */}
+        {!isLoading && !error && (!schedules || schedules.length === 0) && (
+          <div className="card-elevated p-12 text-center">
+            <div className="w-16 h-16 rounded-full bg-muted mx-auto mb-4 flex items-center justify-center">
+              <CalendarIcon className="w-8 h-8 text-muted-foreground" />
+            </div>
+            <h3 className="text-lg font-medium text-foreground mb-2">
+              Nenhuma escala encontrada
+            </h3>
+            <p className="text-muted-foreground mb-4">
+              Comece criando sua primeira escala.
+            </p>
+            <Button className="gap-2 btn-gradient-primary">
+              <Plus className="w-4 h-4" />
+              Nova Escala
+            </Button>
+          </div>
+        )}
+
+        {!isLoading && !error && schedules && schedules.length > 0 && viewMode === 'list' && (
           /* List View */
           <div className="card-elevated overflow-hidden">
             <div className="overflow-x-auto">
@@ -161,57 +153,50 @@ export default function Schedules() {
                     <th className="text-left p-4 text-sm font-medium text-muted-foreground">Evento</th>
                     <th className="text-left p-4 text-sm font-medium text-muted-foreground">Data/Hora</th>
                     <th className="text-left p-4 text-sm font-medium text-muted-foreground">Local</th>
-                    <th className="text-left p-4 text-sm font-medium text-muted-foreground">Equipe</th>
-                    <th className="text-left p-4 text-sm font-medium text-muted-foreground">Status</th>
+                    <th className="text-left p-4 text-sm font-medium text-muted-foreground">Membros</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {mockEvents.map((event) => {
-                    const status = statusStyles[event.status];
-                    return (
-                      <tr 
-                        key={event.id}
-                        className="border-t border-border table-row-hover cursor-pointer"
-                      >
-                        <td className="p-4">
-                          <span className="font-medium text-foreground">{event.title}</span>
-                        </td>
-                        <td className="p-4">
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <CalendarIcon className="w-4 h-4" />
-                            {event.date.toLocaleDateString('pt-BR')}
-                            <Clock className="w-4 h-4 ml-2" />
-                            {event.time}
-                          </div>
-                        </td>
-                        <td className="p-4">
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <MapPin className="w-4 h-4" />
-                            {event.location}
-                          </div>
-                        </td>
-                        <td className="p-4">
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <Users className="w-4 h-4" />
-                            {event.team}
-                          </div>
-                        </td>
-                        <td className="p-4">
-                          <span className={cn(
-                            "px-3 py-1 rounded-full text-xs font-medium",
-                            status.bg, status.text
-                          )}>
-                            {status.label}
-                          </span>
-                        </td>
-                      </tr>
-                    );
-                  })}
+                  {schedules.map((schedule) => (
+                    <tr 
+                      key={schedule.id}
+                      className="border-t border-border table-row-hover cursor-pointer"
+                    >
+                      <td className="p-4">
+                        <span className="font-medium text-foreground">{schedule.title}</span>
+                        {schedule.ministry?.name && (
+                          <p className="text-sm text-muted-foreground">{schedule.ministry.name}</p>
+                        )}
+                      </td>
+                      <td className="p-4">
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <CalendarIcon className="w-4 h-4" />
+                          {formatDate(schedule.event_date)}
+                          <Clock className="w-4 h-4 ml-2" />
+                          {formatTime(schedule.start_time)}
+                        </div>
+                      </td>
+                      <td className="p-4">
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <MapPin className="w-4 h-4" />
+                          {schedule.location || 'Não definido'}
+                        </div>
+                      </td>
+                      <td className="p-4">
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <Users className="w-4 h-4" />
+                          {schedule.schedule_assignments?.length || 0} escalado(s)
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>
           </div>
-        ) : (
+        )}
+
+        {!isLoading && !error && schedules && schedules.length > 0 && viewMode === 'calendar' && (
           /* Calendar View */
           <div className="card-elevated p-6">
             {/* Calendar Header */}
@@ -277,7 +262,7 @@ export default function Schedules() {
                               key={event.id}
                               className="px-2 py-1 rounded text-xs bg-primary/10 text-primary font-medium truncate"
                             >
-                              {event.time} {event.title}
+                              {formatTime(event.start_time)} {event.title}
                             </div>
                           ))}
                           {events.length > 2 && (
