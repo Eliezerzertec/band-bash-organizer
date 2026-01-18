@@ -65,16 +65,16 @@ const statusStyles = {
   needs_subs: {
     bg: 'bg-destructive-light',
     text: 'text-destructive',
-    label: 'Precisa Subs.'
+    label: 'Subs.'
   }
 };
 
 export function UpcomingEvents() {
   return (
-    <div className="card-elevated p-5 animate-slide-up">
-      <div className="flex items-center justify-between mb-5">
+    <div className="card-elevated p-4 md:p-5 animate-slide-up">
+      <div className="flex items-center justify-between gap-3 mb-5">
         <div className="flex items-center gap-3">
-          <AnimatedIcon color="primary" animation="bounce" size="md">
+          <AnimatedIcon color="primary" animation="bounce" size="md" className="hidden sm:flex">
             <Calendar className="w-5 h-5" />
           </AnimatedIcon>
           <div>
@@ -82,8 +82,8 @@ export function UpcomingEvents() {
             <p className="text-sm text-muted-foreground mt-0.5">Agenda dos próximos cultos</p>
           </div>
         </div>
-        <button className="text-sm text-primary font-medium hover:underline">
-          Ver agenda completa
+        <button className="text-sm text-primary font-medium hover:underline whitespace-nowrap">
+          Ver tudo
         </button>
       </div>
 
@@ -94,32 +94,32 @@ export function UpcomingEvents() {
           return (
             <div 
               key={event.id}
-              className="flex items-center gap-4 p-4 rounded-2xl bg-muted/40 hover:bg-muted/60 transition-all cursor-pointer group"
+              className="flex items-center gap-3 md:gap-4 p-3 md:p-4 rounded-2xl bg-muted/40 hover:bg-muted/60 transition-all cursor-pointer group"
             >
               {/* Date Badge */}
-              <div className="w-14 h-14 rounded-2xl bg-primary/10 flex flex-col items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform">
-                <span className="text-[10px] text-primary font-semibold uppercase tracking-wide">
+              <div className="w-12 h-12 md:w-14 md:h-14 rounded-xl md:rounded-2xl bg-primary/10 flex flex-col items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform">
+                <span className="text-[9px] md:text-[10px] text-primary font-semibold uppercase tracking-wide">
                   {event.date.split(' ')[1]}
                 </span>
-                <span className="text-xl font-bold text-primary">
+                <span className="text-lg md:text-xl font-bold text-primary">
                   {event.date.split(' ')[0]}
                 </span>
               </div>
 
               {/* Event Info */}
               <div className="flex-1 min-w-0">
-                <h4 className="font-semibold text-foreground truncate">{event.title}</h4>
-                <div className="flex items-center gap-4 mt-1.5">
-                  <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <Clock className="w-3.5 h-3.5" />
+                <h4 className="font-semibold text-foreground text-sm md:text-base truncate">{event.title}</h4>
+                <div className="flex items-center gap-2 md:gap-4 mt-1 flex-wrap">
+                  <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <Clock className="w-3 h-3" />
                     {event.time}
                   </span>
-                  <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <MapPin className="w-3.5 h-3.5" />
+                  <span className="flex items-center gap-1 text-xs text-muted-foreground hidden sm:flex">
+                    <MapPin className="w-3 h-3" />
                     {event.location}
                   </span>
-                  <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <Users className="w-3.5 h-3.5" />
+                  <span className="flex items-center gap-1 text-xs text-muted-foreground hidden md:flex">
+                    <Users className="w-3 h-3" />
                     {event.team}
                   </span>
                 </div>
@@ -127,7 +127,7 @@ export function UpcomingEvents() {
 
               {/* Status Badge */}
               <span className={cn(
-                "px-4 py-1.5 rounded-full text-xs font-semibold flex-shrink-0 transition-transform group-hover:scale-105",
+                "px-2.5 md:px-4 py-1 md:py-1.5 rounded-full text-[10px] md:text-xs font-semibold flex-shrink-0 transition-transform group-hover:scale-105",
                 status.bg, status.text
               )}>
                 {status.label}
