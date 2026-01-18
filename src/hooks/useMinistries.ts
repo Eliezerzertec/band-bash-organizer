@@ -1,0 +1,136 @@
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
+
+export interface Ministry {
+  id: string;
+  name: string;
+  description: string | null;
+  logo_url: string | null;
+  church_id: string;
+  leader_id: string | null;
+  created_at: string;
+  updated_at: string;
+  church?: { name: string };
+  leader?: { name: string };
+}
+
+export function useMinistries(churchId?: string) {
+  return useQuery({
+    queryKey: ['ministries', churchId],
+    queryFn: async () => {
+      let query = supabase
+        .from('ministries')
+        .select(`
+          *,
+          church:churches(name),
+          leader:profiles!ministries_leader_id_fkey(name)
+        `)
+        .order('name');
+      
+      if (churchId) {
+        query = query.eq('church_id', churchId);
+      }
+      
+      const { data, error } = await query;
+      
+      if (error) throw error;
+      return data as Ministry[];
+    },
+  });
+}
+
+export function useMinistry(id: string) {
+  return useQuery({
+    queryKey: ['ministries', id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('ministries')
+        .select(`
+          *,
+          church:churches(name),
+          leader:profiles!ministries_leader_id_fkey(name)
+        `)
+        .eq('id', id)
+        .maybeSingle();
+      
+      if (error) throw error;
+      return data as Ministry | null;
+    },
+    enabled: !!id,
+  });
+}
+
+export function useCreateMinistry() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: async (ministry: Omit<Ministry, 'id' | 'created_at' | 'updated_at' | 'church' | 'leader'>) => {
+      const { data, error } = await supabase
+        .from('ministries')
+        .insert(ministry)
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['ministries'] });
+      toast({ title: 'Ministério criado com sucesso!' });
+    },
+    onError: (error) => {
+      toast({ title: 'Erro ao criar ministério', description: error.message, variant: 'destructive' });
+    },
+  });
+}
+
+export function useUpdateMinistry() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: async ({ id, ...ministry }: Partial<Ministry> & { id: string }) => {
+      const { data, error } = await supabase
+        .from('ministries')
+        .update(ministry)
+        .eq('id', id)
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['ministries'] });
+      toast({ title: 'Ministério atualizado com sucesso!' });
+    },
+    onError: (error) => {
+      toast({ title: 'Erro ao atualizar ministério', description: error.message, variant: 'destructive' });
+    },
+  });
+}
+
+export function useDeleteMinistry() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from('ministries')
+        .delete()
+        .eq('id', id);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['ministries'] });
+      toast({ title: 'Ministério excluído com sucesso!' });
+    },
+    onError: (error) => {
+      toast({ title: 'Erro ao excluir ministério', description: error.message, variant: 'destructive' });
+    },
+  });
+}
