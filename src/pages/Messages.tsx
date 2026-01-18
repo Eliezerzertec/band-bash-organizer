@@ -8,8 +8,6 @@ import {
   Search, 
   Send,
   Inbox,
-  CheckCircle,
-  Circle,
   User,
   Users,
   Clock
@@ -30,74 +28,56 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-
-interface Message {
-  id: string;
-  sender: {
-    name: string;
-    avatar: string;
-    role: string;
-  };
-  subject: string;
-  preview: string;
-  content: string;
-  read: boolean;
-  date: string;
-  recipientType: 'all' | 'team' | 'member';
-}
-
-const mockMessages: Message[] = [
-  {
-    id: '1',
-    sender: {
-      name: 'Pastor João Silva',
-      avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=pastor',
-      role: 'Líder'
-    },
-    subject: 'Ensaio confirmado para sábado',
-    preview: 'Olá a todos! Confirmo o ensaio para este sábado às 15h...',
-    content: 'Olá a todos!\n\nConfirmo o ensaio para este sábado às 15h na sala de ensaios. Por favor, cheguem com antecedência para afinação e passagem de som.\n\nLevem as cifras atualizadas.\n\nAbraços,\nPastor João',
-    read: false,
-    date: 'Há 2 horas',
-    recipientType: 'all'
-  },
-  {
-    id: '2',
-    sender: {
-      name: 'Maria Santos',
-      avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=maria',
-      role: 'Líder de Louvor'
-    },
-    subject: 'Repertório do próximo domingo',
-    preview: 'Segue o repertório atualizado para o culto de domingo...',
-    content: 'Oi pessoal!\n\nSegue o repertório atualizado para o culto de domingo:\n\n1. Grande é o Senhor\n2. Eu Navegarei\n3. Atos 2\n4. Espontâneo\n5. Santo Espírito\n\nVamos ensaiar tudo no sábado!\n\nMaria',
-    read: true,
-    date: 'Há 1 dia',
-    recipientType: 'team'
-  },
-  {
-    id: '3',
-    sender: {
-      name: 'Sistema',
-      avatar: 'https://api.dicebear.com/7.x/shapes/svg?seed=system',
-      role: 'Sistema'
-    },
-    subject: 'Você foi escalado para domingo',
-    preview: 'Você foi escalado para o Culto de Domingo, dia 19/01...',
-    content: 'Olá!\n\nVocê foi escalado para o seguinte evento:\n\nEvento: Culto de Domingo\nData: 19/01/2026\nHorário: 19:00\nLocal: Templo Principal\nEquipe: Equipe Alpha\nFunção: Guitarra\n\nPor favor, confirme sua presença.\n\nAbraços,\nEquipe Louvor',
-    read: false,
-    date: 'Há 2 dias',
-    recipientType: 'member'
-  },
-];
+import { useMessages, useUnreadMessagesCount, useMarkMessageAsRead, Message } from '@/hooks/useMessages';
+import { Skeleton } from '@/components/ui/skeleton';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 export default function Messages() {
   const { hasRole } = useAuth();
   const isAdmin = hasRole('admin');
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  
+  const { data: messages, isLoading, error } = useMessages();
+  const { data: unreadCount = 0 } = useUnreadMessagesCount();
+  const markAsRead = useMarkMessageAsRead();
 
-  const unreadCount = mockMessages.filter(m => !m.read).length;
+  const filteredMessages = (messages || []).filter(message =>
+    (message.subject || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (message.content || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (message.sender?.name || '').toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const handleSelectMessage = (message: Message) => {
+    setSelectedMessage(message);
+    if (!message.read_at) {
+      markAsRead.mutate(message.id);
+    }
+  };
+
+  const formatCreatedAt = (dateStr: string) => {
+    try {
+      const date = new Date(dateStr);
+      const now = new Date();
+      const diffMs = now.getTime() - date.getTime();
+      const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+      const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+      if (diffHours < 1) return 'Há menos de 1 hora';
+      if (diffHours < 24) return `Há ${diffHours} hora${diffHours > 1 ? 's' : ''}`;
+      if (diffDays < 7) return `Há ${diffDays} dia${diffDays > 1 ? 's' : ''}`;
+      return format(date, "d 'de' MMM", { locale: ptBR });
+    } catch {
+      return dateStr;
+    }
+  };
+
+  const getRecipientType = (message: Message): 'all' | 'team' | 'member' => {
+    if (message.is_broadcast) return 'all';
+    if (message.recipient_team_id) return 'team';
+    return 'member';
+  };
 
   return (
     <MainLayout 
@@ -132,8 +112,7 @@ export default function Messages() {
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="all">Todos os membros</SelectItem>
-                            <SelectItem value="team-alpha">Equipe Alpha</SelectItem>
-                            <SelectItem value="team-beta">Equipe Beta</SelectItem>
+                            <SelectItem value="team">Equipe</SelectItem>
                             <SelectItem value="member">Membro específico</SelectItem>
                           </SelectContent>
                         </Select>
@@ -166,54 +145,89 @@ export default function Messages() {
             </div>
           </div>
 
-          {/* Messages */}
-          <div className="flex-1 overflow-y-auto">
-            {mockMessages.map((message) => (
-              <button
-                key={message.id}
-                onClick={() => setSelectedMessage(message)}
-                className={cn(
-                  "w-full p-4 text-left border-b border-border transition-colors",
-                  "hover:bg-muted/50",
-                  selectedMessage?.id === message.id && "bg-primary/5",
-                  !message.read && "bg-primary/5"
-                )}
-              >
-                <div className="flex items-start gap-3">
-                  <img 
-                    src={message.sender.avatar} 
-                    alt={message.sender.name}
-                    className="w-10 h-10 rounded-full bg-muted flex-shrink-0"
-                  />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className={cn(
-                        "text-sm truncate",
-                        !message.read ? "font-semibold text-foreground" : "text-foreground"
-                      )}>
-                        {message.sender.name}
-                      </span>
-                      <span className="text-xs text-muted-foreground flex-shrink-0">
-                        {message.date}
-                      </span>
-                    </div>
-                    <p className={cn(
-                      "text-sm truncate mt-0.5",
-                      !message.read ? "font-medium text-foreground" : "text-muted-foreground"
-                    )}>
-                      {message.subject}
-                    </p>
-                    <p className="text-xs text-muted-foreground truncate mt-1">
-                      {message.preview}
-                    </p>
+          {/* Loading State */}
+          {isLoading && (
+            <div className="flex-1 p-4 space-y-4">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="flex items-start gap-3">
+                  <Skeleton className="w-10 h-10 rounded-full" />
+                  <div className="flex-1">
+                    <Skeleton className="h-4 w-32 mb-2" />
+                    <Skeleton className="h-3 w-48 mb-1" />
+                    <Skeleton className="h-3 w-full" />
                   </div>
-                  {!message.read && (
-                    <div className="w-2 h-2 rounded-full bg-primary flex-shrink-0 mt-2" />
-                  )}
                 </div>
-              </button>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
+
+          {/* Messages */}
+          {!isLoading && (
+            <div className="flex-1 overflow-y-auto">
+              {filteredMessages.length === 0 ? (
+                <div className="flex-1 flex items-center justify-center p-8">
+                  <div className="text-center">
+                    <Inbox className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
+                    <p className="text-muted-foreground">Nenhuma mensagem encontrada</p>
+                  </div>
+                </div>
+              ) : (
+                filteredMessages.map((message) => (
+                  <button
+                    key={message.id}
+                    onClick={() => handleSelectMessage(message)}
+                    className={cn(
+                      "w-full p-4 text-left border-b border-border transition-colors",
+                      "hover:bg-muted/50",
+                      selectedMessage?.id === message.id && "bg-primary/5",
+                      !message.read_at && "bg-primary/5"
+                    )}
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                        {message.sender?.avatar_url ? (
+                          <img 
+                            src={message.sender.avatar_url} 
+                            alt={message.sender.name}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <span className="text-sm font-medium text-primary">
+                            {message.sender?.name?.charAt(0) || 'S'}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className={cn(
+                            "text-sm truncate",
+                            !message.read_at ? "font-semibold text-foreground" : "text-foreground"
+                          )}>
+                            {message.sender?.name || 'Sistema'}
+                          </span>
+                          <span className="text-xs text-muted-foreground flex-shrink-0">
+                            {formatCreatedAt(message.created_at)}
+                          </span>
+                        </div>
+                        <p className={cn(
+                          "text-sm truncate mt-0.5",
+                          !message.read_at ? "font-medium text-foreground" : "text-muted-foreground"
+                        )}>
+                          {message.subject || 'Sem assunto'}
+                        </p>
+                        <p className="text-xs text-muted-foreground truncate mt-1">
+                          {message.content?.slice(0, 60)}...
+                        </p>
+                      </div>
+                      {!message.read_at && (
+                        <div className="w-2 h-2 rounded-full bg-primary flex-shrink-0 mt-2" />
+                      )}
+                    </div>
+                  </button>
+                ))
+              )}
+            </div>
+          )}
         </div>
 
         {/* Message Content */}
@@ -224,42 +238,50 @@ export default function Messages() {
               <div className="p-6 border-b border-border">
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-4">
-                    <img 
-                      src={selectedMessage.sender.avatar} 
-                      alt={selectedMessage.sender.name}
-                      className="w-12 h-12 rounded-full bg-muted"
-                    />
+                    <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden">
+                      {selectedMessage.sender?.avatar_url ? (
+                        <img 
+                          src={selectedMessage.sender.avatar_url} 
+                          alt={selectedMessage.sender.name}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <span className="text-lg font-medium text-primary">
+                          {selectedMessage.sender?.name?.charAt(0) || 'S'}
+                        </span>
+                      )}
+                    </div>
                     <div>
                       <h3 className="font-semibold text-foreground">
-                        {selectedMessage.sender.name}
+                        {selectedMessage.sender?.name || 'Sistema'}
                       </h3>
                       <p className="text-sm text-muted-foreground">
-                        {selectedMessage.sender.role}
+                        Remetente
                       </p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <Clock className="w-4 h-4" />
-                    {selectedMessage.date}
+                    {formatCreatedAt(selectedMessage.created_at)}
                   </div>
                 </div>
                 <h2 className="text-xl font-semibold text-foreground mt-4">
-                  {selectedMessage.subject}
+                  {selectedMessage.subject || 'Sem assunto'}
                 </h2>
                 <div className="flex items-center gap-2 mt-2">
-                  {selectedMessage.recipientType === 'all' && (
+                  {getRecipientType(selectedMessage) === 'all' && (
                     <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-primary/10 text-primary text-xs font-medium">
                       <Users className="w-3 h-3" />
                       Todos os membros
                     </span>
                   )}
-                  {selectedMessage.recipientType === 'team' && (
+                  {getRecipientType(selectedMessage) === 'team' && (
                     <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-success/10 text-success text-xs font-medium">
                       <Users className="w-3 h-3" />
-                      Equipe
+                      {selectedMessage.recipient_team?.name || 'Equipe'}
                     </span>
                   )}
-                  {selectedMessage.recipientType === 'member' && (
+                  {getRecipientType(selectedMessage) === 'member' && (
                     <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-accent/10 text-accent text-xs font-medium">
                       <User className="w-3 h-3" />
                       Direto

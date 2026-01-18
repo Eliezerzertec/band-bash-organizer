@@ -1,75 +1,30 @@
 import { Calendar, Clock, Users, MapPin } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { AnimatedIcon } from '@/components/ui/animated-icon';
-
-interface Event {
-  id: string;
-  title: string;
-  date: string;
-  time: string;
-  location: string;
-  team: string;
-  status: 'confirmed' | 'pending' | 'needs_subs';
-}
-
-const mockEvents: Event[] = [
-  {
-    id: '1',
-    title: 'Culto de Domingo',
-    date: '19 Jan',
-    time: '19:00',
-    location: 'Templo Principal',
-    team: 'Equipe Alpha',
-    status: 'confirmed'
-  },
-  {
-    id: '2',
-    title: 'Célula Jovem',
-    date: '21 Jan',
-    time: '20:00',
-    location: 'Salão Social',
-    team: 'Equipe Beta',
-    status: 'pending'
-  },
-  {
-    id: '3',
-    title: 'Culto de Quarta',
-    date: '22 Jan',
-    time: '19:30',
-    location: 'Templo Principal',
-    team: 'Equipe Gamma',
-    status: 'needs_subs'
-  },
-  {
-    id: '4',
-    title: 'Ensaio Geral',
-    date: '25 Jan',
-    time: '15:00',
-    location: 'Sala de Ensaio',
-    team: 'Todas as Equipes',
-    status: 'confirmed'
-  },
-];
-
-const statusStyles = {
-  confirmed: {
-    bg: 'bg-success',
-    text: 'text-success-foreground',
-    label: 'Confirmado'
-  },
-  pending: {
-    bg: 'bg-warning-light',
-    text: 'text-warning',
-    label: 'Pendente'
-  },
-  needs_subs: {
-    bg: 'bg-destructive-light',
-    text: 'text-destructive',
-    label: 'Subs.'
-  }
-};
+import { useUpcomingSchedules } from '@/hooks/useSchedules';
+import { Skeleton } from '@/components/ui/skeleton';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 export function UpcomingEvents() {
+  const { data: schedules, isLoading, error } = useUpcomingSchedules(4);
+
+  const formatDate = (dateStr: string) => {
+    try {
+      const date = new Date(dateStr);
+      return {
+        day: format(date, 'd', { locale: ptBR }),
+        month: format(date, 'MMM', { locale: ptBR })
+      };
+    } catch {
+      return { day: '-', month: '-' };
+    }
+  };
+
+  const formatTime = (timeStr: string) => {
+    return timeStr?.slice(0, 5) || '';
+  };
+
   return (
     <div className="card-elevated p-4 md:p-5 animate-slide-up">
       <div className="flex items-center justify-between gap-3 mb-5">
@@ -87,55 +42,88 @@ export function UpcomingEvents() {
         </button>
       </div>
 
-      <div className="space-y-3">
-        {mockEvents.map((event) => {
-          const status = statusStyles[event.status];
-          
-          return (
-            <div 
-              key={event.id}
-              className="flex items-center gap-3 md:gap-4 p-3 md:p-4 rounded-2xl bg-muted/40 hover:bg-muted/60 transition-all cursor-pointer group"
-            >
-              {/* Date Badge */}
-              <div className="w-12 h-12 md:w-14 md:h-14 rounded-xl md:rounded-2xl bg-primary/10 flex flex-col items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform">
-                <span className="text-[9px] md:text-[10px] text-primary font-semibold uppercase tracking-wide">
-                  {event.date.split(' ')[1]}
-                </span>
-                <span className="text-lg md:text-xl font-bold text-primary">
-                  {event.date.split(' ')[0]}
-                </span>
+      {isLoading && (
+        <div className="space-y-3">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="flex items-center gap-3 md:gap-4 p-3 md:p-4 rounded-2xl bg-muted/40">
+              <Skeleton className="w-12 h-12 md:w-14 md:h-14 rounded-xl" />
+              <div className="flex-1">
+                <Skeleton className="h-4 w-32 mb-2" />
+                <Skeleton className="h-3 w-48" />
               </div>
+              <Skeleton className="h-6 w-20 rounded-full" />
+            </div>
+          ))}
+        </div>
+      )}
 
-              {/* Event Info */}
-              <div className="flex-1 min-w-0">
-                <h4 className="font-semibold text-foreground text-sm md:text-base truncate">{event.title}</h4>
-                <div className="flex items-center gap-2 md:gap-4 mt-1 flex-wrap">
-                  <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                    <Clock className="w-3 h-3" />
-                    {event.time}
+      {error && (
+        <div className="text-center py-8">
+          <p className="text-sm text-destructive">Erro ao carregar eventos</p>
+        </div>
+      )}
+
+      {!isLoading && !error && (!schedules || schedules.length === 0) && (
+        <div className="text-center py-8">
+          <Calendar className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
+          <p className="text-sm text-muted-foreground">Nenhum evento próximo</p>
+        </div>
+      )}
+
+      {!isLoading && !error && schedules && schedules.length > 0 && (
+        <div className="space-y-3">
+          {schedules.map((schedule) => {
+            const { day, month } = formatDate(schedule.event_date);
+            const assignmentsCount = schedule.schedule_assignments?.length || 0;
+            
+            return (
+              <div 
+                key={schedule.id}
+                className="flex items-center gap-3 md:gap-4 p-3 md:p-4 rounded-2xl bg-muted/40 hover:bg-muted/60 transition-all cursor-pointer group"
+              >
+                {/* Date Badge */}
+                <div className="w-12 h-12 md:w-14 md:h-14 rounded-xl md:rounded-2xl bg-primary/10 flex flex-col items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform">
+                  <span className="text-[9px] md:text-[10px] text-primary font-semibold uppercase tracking-wide">
+                    {month}
                   </span>
-                  <span className="flex items-center gap-1 text-xs text-muted-foreground hidden sm:flex">
-                    <MapPin className="w-3 h-3" />
-                    {event.location}
-                  </span>
-                  <span className="flex items-center gap-1 text-xs text-muted-foreground hidden md:flex">
-                    <Users className="w-3 h-3" />
-                    {event.team}
+                  <span className="text-lg md:text-xl font-bold text-primary">
+                    {day}
                   </span>
                 </div>
-              </div>
 
-              {/* Status Badge */}
-              <span className={cn(
-                "px-2.5 md:px-4 py-1 md:py-1.5 rounded-full text-[10px] md:text-xs font-semibold flex-shrink-0 transition-transform group-hover:scale-105",
-                status.bg, status.text
-              )}>
-                {status.label}
-              </span>
-            </div>
-          );
-        })}
-      </div>
+                {/* Event Info */}
+                <div className="flex-1 min-w-0">
+                  <h4 className="font-semibold text-foreground text-sm md:text-base truncate">{schedule.title}</h4>
+                  <div className="flex items-center gap-2 md:gap-4 mt-1 flex-wrap">
+                    <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                      <Clock className="w-3 h-3" />
+                      {formatTime(schedule.start_time)}
+                    </span>
+                    {schedule.location && (
+                      <span className="flex items-center gap-1 text-xs text-muted-foreground hidden sm:flex">
+                        <MapPin className="w-3 h-3" />
+                        {schedule.location}
+                      </span>
+                    )}
+                    <span className="flex items-center gap-1 text-xs text-muted-foreground hidden md:flex">
+                      <Users className="w-3 h-3" />
+                      {assignmentsCount} escalado(s)
+                    </span>
+                  </div>
+                </div>
+
+                {/* Status Badge */}
+                <span className={cn(
+                  "px-2.5 md:px-4 py-1 md:py-1.5 rounded-full text-[10px] md:text-xs font-semibold flex-shrink-0 transition-transform group-hover:scale-105",
+                  assignmentsCount > 0 ? "bg-success text-success-foreground" : "bg-warning-light text-warning"
+                )}>
+                  {assignmentsCount > 0 ? 'Confirmado' : 'Pendente'}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
