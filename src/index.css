@@ -60,19 +60,19 @@
     --ring: 200 80% 45%;
     --radius: 1rem;
     
-    /* Sidebar - Dark Gradient like Fincan.io */
-    --sidebar-background: 220 45% 12%;
-    --sidebar-foreground: 0 0% 98%;
-    --sidebar-primary: 200 80% 55%;
+    /* Sidebar - Lemon Chiffon theme */
+    --sidebar-background: 60 100% 90%;
+    --sidebar-foreground: 220 25% 15%;
+    --sidebar-primary: 200 80% 45%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 220 40% 20%;
-    --sidebar-accent-foreground: 0 0% 100%;
-    --sidebar-border: 220 35% 18%;
+    --sidebar-accent: 60 80% 85%;
+    --sidebar-accent-foreground: 220 25% 15%;
+    --sidebar-border: 60 50% 80%;
     --sidebar-ring: 200 80% 55%;
     
-    /* Header - Dark Gradient */
-    --header-background: 220 45% 10%;
-    --header-foreground: 0 0% 98%;
+    /* Header - Lemon Chiffon theme */
+    --header-background: 60 100% 90%;
+    --header-foreground: 220 25% 15%;
     
     /* Chart Colors - Vibrant palette */
     --chart-1: 200 80% 50%;
@@ -93,8 +93,8 @@
     --gradient-success: linear-gradient(135deg, hsl(160 65% 45%), hsl(140 60% 50%));
     --gradient-warning: linear-gradient(135deg, hsl(28 95% 55%), hsl(15 90% 50%));
     --gradient-accent: linear-gradient(135deg, hsl(330 75% 55%), hsl(350 70% 60%));
-    --gradient-header: linear-gradient(90deg, hsl(220 45% 12%), hsl(200 40% 18%));
-    --gradient-sidebar: linear-gradient(180deg, hsl(220 45% 14%), hsl(220 45% 10%));
+    --gradient-header: linear-gradient(90deg, hsl(60 100% 90%), hsl(60 80% 88%));
+    --gradient-sidebar: linear-gradient(180deg, hsl(60 100% 92%), hsl(60 100% 88%));
     
     /* Shadows - More pronounced for depth */
     --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.04);
@@ -143,14 +143,17 @@
     --input: 220 15% 22%;
     --ring: 200 75% 55%;
     
-    --sidebar-background: 220 40% 8%;
+    --sidebar-background: 220 25% 10%;
     --sidebar-foreground: 0 0% 96%;
     --sidebar-primary: 200 75% 55%;
-    --sidebar-accent: 220 35% 16%;
-    --sidebar-border: 220 30% 14%;
+    --sidebar-accent: 220 25% 16%;
+    --sidebar-border: 220 20% 14%;
     
-    --header-background: 220 40% 6%;
+    --header-background: 220 25% 10%;
     --header-foreground: 0 0% 96%;
+    
+    --gradient-header: linear-gradient(90deg, hsl(220 25% 10%), hsl(220 25% 12%));
+    --gradient-sidebar: linear-gradient(180deg, hsl(220 25% 12%), hsl(220 25% 8%));
   }
 }
 
