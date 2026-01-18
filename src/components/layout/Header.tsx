@@ -3,6 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { ThemeToggle } from '@/components/ui/theme-toggle';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -81,6 +82,9 @@ export function Header({ title, subtitle, onMenuClick }: HeaderProps) {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+
+          {/* Theme Toggle */}
+          <ThemeToggle />
 
           {/* Settings - Hidden on mobile */}
           <Button variant="ghost" size="icon" className="text-header-foreground/70 hover:text-header-foreground hover:bg-white/10 rounded-xl hidden md:flex">
