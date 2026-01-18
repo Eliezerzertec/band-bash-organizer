@@ -60,19 +60,19 @@
     --ring: 200 80% 45%;
     --radius: 1rem;
     
-    /* Sidebar - Golden/Amber theme #FFAF00 */
-    --sidebar-background: 41 100% 50%;
-    --sidebar-foreground: 0 0% 100%;
-    --sidebar-primary: 41 100% 35%;
+    /* Sidebar - Light Gray #F5F5F5 */
+    --sidebar-background: 0 0% 96%;
+    --sidebar-foreground: 220 25% 15%;
+    --sidebar-primary: 200 80% 45%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 41 100% 45%;
-    --sidebar-accent-foreground: 0 0% 100%;
-    --sidebar-border: 41 80% 40%;
-    --sidebar-ring: 41 100% 60%;
+    --sidebar-accent: 0 0% 92%;
+    --sidebar-accent-foreground: 220 25% 15%;
+    --sidebar-border: 0 0% 88%;
+    --sidebar-ring: 200 80% 55%;
     
-    /* Header - Golden/Amber theme #FFAF00 */
-    --header-background: 41 100% 50%;
-    --header-foreground: 0 0% 100%;
+    /* Header - Light Gray #F5F5F5 */
+    --header-background: 0 0% 96%;
+    --header-foreground: 220 25% 15%;
     
     /* Chart Colors - Vibrant palette */
     --chart-1: 200 80% 50%;
@@ -93,8 +93,8 @@
     --gradient-success: linear-gradient(135deg, hsl(160 65% 45%), hsl(140 60% 50%));
     --gradient-warning: linear-gradient(135deg, hsl(28 95% 55%), hsl(15 90% 50%));
     --gradient-accent: linear-gradient(135deg, hsl(330 75% 55%), hsl(350 70% 60%));
-    --gradient-header: linear-gradient(90deg, hsl(41 100% 50%), hsl(41 100% 45%));
-    --gradient-sidebar: linear-gradient(180deg, hsl(41 100% 52%), hsl(41 100% 48%));
+    --gradient-header: linear-gradient(90deg, hsl(0 0% 96%), hsl(0 0% 94%));
+    --gradient-sidebar: linear-gradient(180deg, hsl(0 0% 97%), hsl(0 0% 95%));
     
     /* Shadows - More pronounced for depth */
     --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.04);
