@@ -2,9 +2,16 @@ import { useState } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Plus, Search, Users, Calendar, Music } from 'lucide-react';
-import { useTeams } from '@/hooks/useTeams';
+import { Plus, Search, Users, Calendar, Music, MoreVertical, Edit, Trash2, Loader2 } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { useTeams, useDeleteTeam, Team } from '@/hooks/useTeams';
 import { Skeleton } from '@/components/ui/skeleton';
+import { TeamFormDialog } from '@/components/forms/TeamFormDialog';
 
 const colorVariants: Record<number, string> = {
   0: 'bg-primary/10 text-primary border-primary/20',
@@ -15,11 +22,24 @@ const colorVariants: Record<number, string> = {
 
 export default function Teams() {
   const [searchTerm, setSearchTerm] = useState('');
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
   const { data: teams, isLoading, error } = useTeams();
+  const deleteTeam = useDeleteTeam();
 
   const filteredTeams = (teams || []).filter(team =>
     team.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const handleCreate = () => {
+    setSelectedTeam(null);
+    setDialogOpen(true);
+  };
+
+  const handleEdit = (team: Team) => {
+    setSelectedTeam(team);
+    setDialogOpen(true);
+  };
 
   return (
     <MainLayout 
@@ -38,7 +58,7 @@ export default function Teams() {
               className="pl-10 input-modern"
             />
           </div>
-          <Button className="gap-2 btn-gradient-primary">
+          <Button className="gap-2 btn-gradient-primary" onClick={handleCreate}>
             <Plus className="w-4 h-4" />
             Nova Equipe
           </Button>
@@ -93,7 +113,7 @@ export default function Teams() {
               {searchTerm ? 'Nenhuma equipe corresponde à sua busca.' : 'Comece criando sua primeira equipe.'}
             </p>
             {!searchTerm && (
-              <Button className="gap-2 btn-gradient-primary">
+              <Button className="gap-2 btn-gradient-primary" onClick={handleCreate}>
                 <Plus className="w-4 h-4" />
                 Nova Equipe
               </Button>
@@ -125,6 +145,31 @@ export default function Teams() {
                           <p className="text-sm opacity-80">{team.description || team.ministry?.name || ''}</p>
                         </div>
                       </div>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <MoreVertical className="w-4 h-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem className="gap-2" onClick={() => handleEdit(team)}>
+                            <Edit className="w-4 h-4" />
+                            Editar
+                          </DropdownMenuItem>
+                          <DropdownMenuItem 
+                            className="gap-2 text-destructive"
+                            onClick={() => deleteTeam.mutate(team.id)}
+                            disabled={deleteTeam.isPending}
+                          >
+                            {deleteTeam.isPending ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <Trash2 className="w-4 h-4" />
+                            )}
+                            Excluir
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
                   </div>
 
@@ -188,6 +233,12 @@ export default function Teams() {
           </div>
         )}
       </div>
+
+      <TeamFormDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        team={selectedTeam}
+      />
     </MainLayout>
   );
 }
