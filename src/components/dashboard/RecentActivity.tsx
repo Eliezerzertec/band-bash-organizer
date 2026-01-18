@@ -55,21 +55,21 @@ const mockActivities: Activity[] = [
 ];
 
 const activityIcons = {
-  member_added: { icon: UserPlus, color: 'text-primary bg-primary/10' },
-  schedule_created: { icon: Calendar, color: 'text-success bg-success/10' },
-  sub_request: { icon: ArrowLeftRight, color: 'text-warning bg-warning/10' },
-  sub_accepted: { icon: CheckCircle, color: 'text-success bg-success/10' },
-  sub_rejected: { icon: XCircle, color: 'text-destructive bg-destructive/10' },
-  message: { icon: MessageSquare, color: 'text-accent bg-accent/10' },
+  member_added: { icon: UserPlus, color: 'bg-primary/12 text-primary' },
+  schedule_created: { icon: Calendar, color: 'bg-success/12 text-success' },
+  sub_request: { icon: ArrowLeftRight, color: 'bg-warning/12 text-warning' },
+  sub_accepted: { icon: CheckCircle, color: 'bg-success/12 text-success' },
+  sub_rejected: { icon: XCircle, color: 'bg-destructive/12 text-destructive' },
+  message: { icon: MessageSquare, color: 'bg-accent/12 text-accent' },
 };
 
 export function RecentActivity() {
   return (
-    <div className="card-elevated p-6 animate-slide-up">
-      <div className="flex items-center justify-between mb-6">
+    <div className="card-elevated p-5 animate-slide-up">
+      <div className="flex items-center justify-between mb-5">
         <div>
           <h3 className="font-semibold text-foreground">Atividade Recente</h3>
-          <p className="text-sm text-muted-foreground">Últimas ações no sistema</p>
+          <p className="text-sm text-muted-foreground mt-0.5">Últimas ações no sistema</p>
         </div>
         <button className="text-sm text-primary font-medium hover:underline">
           Ver tudo
@@ -83,21 +83,21 @@ export function RecentActivity() {
           return (
             <div 
               key={activity.id}
-              className="flex items-start gap-3"
+              className="flex items-start gap-3 group"
             >
               <div className={cn(
-                "w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0",
+                "w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 transition-transform group-hover:scale-105",
                 color
               )}>
                 <Icon className="w-4 h-4" />
               </div>
               
               <div className="flex-1 min-w-0">
-                <p className="text-sm text-foreground">
-                  <span className="font-medium">{activity.user}</span>{' '}
-                  {activity.message}
+                <p className="text-sm text-foreground leading-snug">
+                  <span className="font-semibold">{activity.user}</span>{' '}
+                  <span className="text-muted-foreground">{activity.message}</span>
                 </p>
-                <p className="text-xs text-muted-foreground mt-0.5">{activity.time}</p>
+                <p className="text-xs text-muted-foreground/70 mt-1">{activity.time}</p>
               </div>
             </div>
           );
