@@ -52,8 +52,8 @@ const mockEvents: Event[] = [
 
 const statusStyles = {
   confirmed: {
-    bg: 'bg-success-light',
-    text: 'text-success',
+    bg: 'bg-success',
+    text: 'text-success-foreground',
     label: 'Confirmado'
   },
   pending: {
@@ -70,50 +70,50 @@ const statusStyles = {
 
 export function UpcomingEvents() {
   return (
-    <div className="card-elevated p-6 animate-slide-up">
-      <div className="flex items-center justify-between mb-6">
+    <div className="card-elevated p-5 animate-slide-up">
+      <div className="flex items-center justify-between mb-5">
         <div>
           <h3 className="font-semibold text-foreground">Próximos Eventos</h3>
-          <p className="text-sm text-muted-foreground">Agenda dos próximos cultos</p>
+          <p className="text-sm text-muted-foreground mt-0.5">Agenda dos próximos cultos</p>
         </div>
         <button className="text-sm text-primary font-medium hover:underline">
           Ver agenda completa
         </button>
       </div>
 
-      <div className="space-y-4">
+      <div className="space-y-3">
         {mockEvents.map((event) => {
           const status = statusStyles[event.status];
           
           return (
             <div 
               key={event.id}
-              className="flex items-center gap-4 p-4 rounded-xl bg-muted/50 hover:bg-muted transition-colors cursor-pointer"
+              className="flex items-center gap-4 p-4 rounded-2xl bg-muted/40 hover:bg-muted/60 transition-all cursor-pointer"
             >
               {/* Date Badge */}
-              <div className="w-14 h-14 rounded-xl bg-primary/10 flex flex-col items-center justify-center flex-shrink-0">
-                <span className="text-xs text-primary font-medium">
+              <div className="w-14 h-14 rounded-2xl bg-primary/10 flex flex-col items-center justify-center flex-shrink-0">
+                <span className="text-[10px] text-primary font-semibold uppercase tracking-wide">
                   {event.date.split(' ')[1]}
                 </span>
-                <span className="text-lg font-bold text-primary">
+                <span className="text-xl font-bold text-primary">
                   {event.date.split(' ')[0]}
                 </span>
               </div>
 
               {/* Event Info */}
               <div className="flex-1 min-w-0">
-                <h4 className="font-medium text-foreground truncate">{event.title}</h4>
-                <div className="flex items-center gap-4 mt-1">
-                  <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                    <Clock className="w-3 h-3" />
+                <h4 className="font-semibold text-foreground truncate">{event.title}</h4>
+                <div className="flex items-center gap-4 mt-1.5">
+                  <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <Clock className="w-3.5 h-3.5" />
                     {event.time}
                   </span>
-                  <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                    <MapPin className="w-3 h-3" />
+                  <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <MapPin className="w-3.5 h-3.5" />
                     {event.location}
                   </span>
-                  <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                    <Users className="w-3 h-3" />
+                  <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <Users className="w-3.5 h-3.5" />
                     {event.team}
                   </span>
                 </div>
@@ -121,7 +121,7 @@ export function UpcomingEvents() {
 
               {/* Status Badge */}
               <span className={cn(
-                "px-3 py-1 rounded-full text-xs font-medium flex-shrink-0",
+                "px-4 py-1.5 rounded-full text-xs font-semibold flex-shrink-0",
                 status.bg, status.text
               )}>
                 {status.label}

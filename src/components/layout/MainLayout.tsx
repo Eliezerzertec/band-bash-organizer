@@ -12,9 +12,9 @@ export function MainLayout({ children, title, subtitle }: MainLayoutProps) {
   return (
     <div className="min-h-screen bg-background">
       <Sidebar />
-      <div className="ml-64 min-h-screen flex flex-col">
+      <div className="ml-72 min-h-screen flex flex-col">
         <Header title={title} subtitle={subtitle} />
-        <main className="flex-1 p-6">
+        <main className="flex-1 p-8">
           {children}
         </main>
       </div>

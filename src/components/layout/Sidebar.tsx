@@ -15,7 +15,6 @@ import {
   Settings,
   LogOut,
   ChevronLeft,
-  Bell,
   User
 } from 'lucide-react';
 
@@ -54,32 +53,32 @@ export function Sidebar() {
   return (
     <aside 
       className={cn(
-        "fixed left-0 top-0 h-full sidebar-gradient flex flex-col transition-all duration-300 z-50",
-        isCollapsed ? "w-20" : "w-64"
+        "fixed left-0 top-0 h-full sidebar-gradient flex flex-col transition-all duration-300 z-50 shadow-2xl",
+        isCollapsed ? "w-20" : "w-72"
       )}
     >
       {/* Header */}
-      <div className="p-6 flex items-center justify-between border-b border-sidebar-border">
+      <div className="p-5 flex items-center justify-between">
         {!isCollapsed && (
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-sidebar-primary flex items-center justify-center">
+            <div className="w-11 h-11 rounded-2xl bg-sidebar-primary flex items-center justify-center shadow-lg">
               <Music className="w-6 h-6 text-sidebar-primary-foreground" />
             </div>
             <div>
-              <h1 className="font-bold text-sidebar-foreground text-lg">Louvor</h1>
-              <p className="text-xs text-sidebar-foreground/60">Gestão de Ministério</p>
+              <h1 className="font-bold text-sidebar-foreground text-lg tracking-tight">Louvor</h1>
+              <p className="text-xs text-sidebar-foreground/50">Gestão de Ministério</p>
             </div>
           </div>
         )}
         {isCollapsed && (
-          <div className="w-10 h-10 rounded-xl bg-sidebar-primary flex items-center justify-center mx-auto">
+          <div className="w-11 h-11 rounded-2xl bg-sidebar-primary flex items-center justify-center mx-auto shadow-lg">
             <Music className="w-6 h-6 text-sidebar-primary-foreground" />
           </div>
         )}
         <button 
           onClick={() => setIsCollapsed(!isCollapsed)}
           className={cn(
-            "p-2 rounded-lg hover:bg-sidebar-accent transition-colors text-sidebar-foreground/70",
+            "p-2 rounded-xl hover:bg-sidebar-accent/50 transition-colors text-sidebar-foreground/50 hover:text-sidebar-foreground",
             isCollapsed && "mx-auto mt-4"
           )}
         >
@@ -88,8 +87,8 @@ export function Sidebar() {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 py-6 px-3 overflow-y-auto">
-        <div className="space-y-1">
+      <nav className="flex-1 py-4 px-3 overflow-y-auto">
+        <div className="space-y-1.5">
           {filteredNavItems.map((item) => {
             const Icon = item.icon;
             const isActive = location.pathname === item.path;
@@ -99,15 +98,15 @@ export function Sidebar() {
                 key={item.path}
                 onClick={() => handleNavigation(item.path)}
                 className={cn(
-                  "w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all",
-                  "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent",
-                  isActive && "bg-sidebar-accent text-sidebar-foreground font-medium",
+                  "w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200",
+                  "text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/40",
+                  isActive && "bg-sidebar-primary text-sidebar-primary-foreground font-medium shadow-lg shadow-sidebar-primary/30",
                   isCollapsed && "justify-center px-3"
                 )}
                 title={isCollapsed ? item.label : undefined}
               >
                 <Icon className="w-5 h-5 flex-shrink-0" />
-                {!isCollapsed && <span>{item.label}</span>}
+                {!isCollapsed && <span className="text-sm">{item.label}</span>}
               </button>
             );
           })}
@@ -115,29 +114,29 @@ export function Sidebar() {
       </nav>
 
       {/* Footer - User */}
-      <div className="p-4 border-t border-sidebar-border">
+      <div className="p-4 border-t border-sidebar-border/30">
         <div className={cn(
           "flex items-center gap-3",
           isCollapsed && "flex-col"
         )}>
-          <div className="w-10 h-10 rounded-full bg-sidebar-accent overflow-hidden flex-shrink-0">
+          <div className="w-10 h-10 rounded-xl bg-sidebar-accent overflow-hidden flex-shrink-0 shadow-md">
             {user?.avatar ? (
               <img src={user.avatar} alt={user.name} className="w-full h-full object-cover" />
             ) : (
               <div className="w-full h-full flex items-center justify-center">
-                <User className="w-5 h-5 text-sidebar-foreground/70" />
+                <User className="w-5 h-5 text-sidebar-foreground/60" />
               </div>
             )}
           </div>
           {!isCollapsed && (
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-sidebar-foreground truncate">{user?.name}</p>
-              <p className="text-xs text-sidebar-foreground/60 capitalize">{user?.role === 'admin' ? 'Administrador' : 'Membro'}</p>
+              <p className="text-xs text-sidebar-foreground/50 capitalize">{user?.role === 'admin' ? 'Administrador' : 'Membro'}</p>
             </div>
           )}
           <button
             onClick={logout}
-            className="p-2 rounded-lg hover:bg-sidebar-accent transition-colors text-sidebar-foreground/70 hover:text-sidebar-foreground"
+            className="p-2 rounded-xl hover:bg-sidebar-accent/50 transition-colors text-sidebar-foreground/50 hover:text-sidebar-foreground"
             title="Sair"
           >
             <LogOut className="w-5 h-5" />

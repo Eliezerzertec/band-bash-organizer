@@ -1,22 +1,22 @@
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
 
 const skillsData = [
-  { name: 'Vocal', value: 12, color: 'hsl(262, 80%, 55%)' },
-  { name: 'Violão', value: 8, color: 'hsl(152, 60%, 45%)' },
-  { name: 'Teclado', value: 6, color: 'hsl(330, 70%, 55%)' },
-  { name: 'Bateria', value: 4, color: 'hsl(25, 95%, 60%)' },
-  { name: 'Baixo', value: 3, color: 'hsl(200, 80%, 50%)' },
+  { name: 'Vocal', value: 12, color: 'hsl(200, 80%, 50%)' },
+  { name: 'Violão', value: 8, color: 'hsl(160, 65%, 45%)' },
+  { name: 'Teclado', value: 6, color: 'hsl(330, 75%, 55%)' },
+  { name: 'Bateria', value: 4, color: 'hsl(28, 95%, 55%)' },
+  { name: 'Baixo', value: 3, color: 'hsl(270, 70%, 55%)' },
 ];
 
 export function MembersChart() {
   return (
-    <div className="card-elevated p-6 animate-slide-up">
-      <div className="flex items-center justify-between mb-6">
+    <div className="card-elevated p-5 animate-slide-up">
+      <div className="flex items-center justify-between mb-5">
         <div>
           <h3 className="font-semibold text-foreground">Membros por Habilidade</h3>
-          <p className="text-sm text-muted-foreground">Distribuição musical</p>
+          <p className="text-sm text-muted-foreground mt-0.5">Distribuição musical</p>
         </div>
-        <select className="text-sm bg-muted rounded-lg px-3 py-1.5 border-0 focus:ring-2 focus:ring-primary/20">
+        <select className="text-sm bg-muted/60 rounded-xl px-3 py-2 border-0 focus:ring-2 focus:ring-primary/20 cursor-pointer">
           <option>Todos</option>
           <option>Ativos</option>
           <option>Inativos</option>
@@ -30,10 +30,11 @@ export function MembersChart() {
               data={skillsData}
               cx="50%"
               cy="50%"
-              innerRadius={60}
-              outerRadius={90}
-              paddingAngle={4}
+              innerRadius={55}
+              outerRadius={85}
+              paddingAngle={5}
               dataKey="value"
+              strokeWidth={0}
             >
               {skillsData.map((entry, index) => (
                 <Cell key={`cell-${index}`} fill={entry.color} />
@@ -43,14 +44,15 @@ export function MembersChart() {
               contentStyle={{ 
                 backgroundColor: 'hsl(var(--card))',
                 border: '1px solid hsl(var(--border))',
-                borderRadius: '8px',
-                boxShadow: 'var(--shadow-md)'
+                borderRadius: '12px',
+                boxShadow: 'var(--shadow-lg)',
+                padding: '8px 12px'
               }}
             />
             <Legend 
               verticalAlign="bottom" 
-              height={36}
-              formatter={(value) => <span className="text-sm text-foreground">{value}</span>}
+              height={40}
+              formatter={(value) => <span className="text-sm text-foreground ml-1">{value}</span>}
             />
           </PieChart>
         </ResponsiveContainer>
