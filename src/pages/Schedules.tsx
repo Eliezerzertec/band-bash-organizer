@@ -10,20 +10,43 @@ import {
   Clock,
   MapPin,
   Users,
+  MoreVertical,
+  Edit,
+  Trash2,
   Loader2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useSchedules } from '@/hooks/useSchedules';
+import { useSchedules, useDeleteSchedule, Schedule } from '@/hooks/useSchedules';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { ScheduleFormDialog } from '@/components/forms/ScheduleFormDialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 const daysOfWeek = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
 export default function Schedules() {
   const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
   const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [selectedSchedule, setSelectedSchedule] = useState<Schedule | null>(null);
   const { data: schedules, isLoading, error } = useSchedules();
+  const deleteSchedule = useDeleteSchedule();
+
+  const handleCreate = () => {
+    setSelectedSchedule(null);
+    setDialogOpen(true);
+  };
+
+  const handleEdit = (schedule: Schedule) => {
+    setSelectedSchedule(schedule);
+    setDialogOpen(true);
+  };
 
   const getDaysInMonth = (date: Date) => {
     const year = date.getFullYear();
@@ -98,7 +121,7 @@ export default function Schedules() {
               Calendário
             </Button>
           </div>
-          <Button className="gap-2 btn-gradient-primary">
+          <Button className="gap-2 btn-gradient-primary" onClick={handleCreate}>
             <Plus className="w-4 h-4" />
             Nova Escala
           </Button>
@@ -136,7 +159,7 @@ export default function Schedules() {
             <p className="text-muted-foreground mb-4">
               Comece criando sua primeira escala.
             </p>
-            <Button className="gap-2 btn-gradient-primary">
+            <Button className="gap-2 btn-gradient-primary" onClick={handleCreate}>
               <Plus className="w-4 h-4" />
               Nova Escala
             </Button>
@@ -144,7 +167,6 @@ export default function Schedules() {
         )}
 
         {!isLoading && !error && schedules && schedules.length > 0 && viewMode === 'list' && (
-          /* List View */
           <div className="card-elevated overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full">
@@ -154,19 +176,15 @@ export default function Schedules() {
                     <th className="text-left p-4 text-sm font-medium text-muted-foreground">Data/Hora</th>
                     <th className="text-left p-4 text-sm font-medium text-muted-foreground">Local</th>
                     <th className="text-left p-4 text-sm font-medium text-muted-foreground">Membros</th>
+                    <th className="w-10"></th>
                   </tr>
                 </thead>
                 <tbody>
                   {schedules.map((schedule) => (
-                    <tr 
-                      key={schedule.id}
-                      className="border-t border-border table-row-hover cursor-pointer"
-                    >
+                    <tr key={schedule.id} className="border-t border-border table-row-hover">
                       <td className="p-4">
                         <span className="font-medium text-foreground">{schedule.title}</span>
-                        {schedule.ministry?.name && (
-                          <p className="text-sm text-muted-foreground">{schedule.ministry.name}</p>
-                        )}
+                        {schedule.ministry?.name && <p className="text-sm text-muted-foreground">{schedule.ministry.name}</p>}
                       </td>
                       <td className="p-4">
                         <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -187,6 +205,29 @@ export default function Schedules() {
                           <Users className="w-4 h-4" />
                           {schedule.schedule_assignments?.length || 0} escalado(s)
                         </div>
+                      </td>
+                      <td className="p-4">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                              <MoreVertical className="w-4 h-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem className="gap-2" onClick={() => handleEdit(schedule)}>
+                              <Edit className="w-4 h-4" />
+                              Editar
+                            </DropdownMenuItem>
+                            <DropdownMenuItem 
+                              className="gap-2 text-destructive"
+                              onClick={() => deleteSchedule.mutate(schedule.id)}
+                              disabled={deleteSchedule.isPending}
+                            >
+                              {deleteSchedule.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                              Excluir
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </td>
                     </tr>
                   ))}

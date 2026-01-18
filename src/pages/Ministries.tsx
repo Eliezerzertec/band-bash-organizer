@@ -19,11 +19,14 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { useMinistries, useDeleteMinistry } from '@/hooks/useMinistries';
+import { useMinistries, useDeleteMinistry, Ministry } from '@/hooks/useMinistries';
 import { Skeleton } from '@/components/ui/skeleton';
+import { MinistryFormDialog } from '@/components/forms/MinistryFormDialog';
 
 export default function Ministries() {
   const [searchTerm, setSearchTerm] = useState('');
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [selectedMinistry, setSelectedMinistry] = useState<Ministry | null>(null);
   const { data: ministries, isLoading, error } = useMinistries();
   const deleteMinistry = useDeleteMinistry();
 
@@ -31,6 +34,16 @@ export default function Ministries() {
     ministry.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (ministry.church?.name || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const handleCreate = () => {
+    setSelectedMinistry(null);
+    setDialogOpen(true);
+  };
+
+  const handleEdit = (ministry: Ministry) => {
+    setSelectedMinistry(ministry);
+    setDialogOpen(true);
+  };
 
   return (
     <MainLayout 
@@ -49,7 +62,7 @@ export default function Ministries() {
               className="pl-10 input-modern"
             />
           </div>
-          <Button className="gap-2 btn-gradient-primary">
+          <Button className="gap-2 btn-gradient-primary" onClick={handleCreate}>
             <Plus className="w-4 h-4" />
             Novo Ministério
           </Button>
@@ -97,7 +110,7 @@ export default function Ministries() {
               {searchTerm ? 'Nenhum ministério corresponde à sua busca.' : 'Comece cadastrando seu primeiro ministério.'}
             </p>
             {!searchTerm && (
-              <Button className="gap-2 btn-gradient-primary">
+              <Button className="gap-2 btn-gradient-primary" onClick={handleCreate}>
                 <Plus className="w-4 h-4" />
                 Novo Ministério
               </Button>
@@ -132,7 +145,7 @@ export default function Ministries() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem className="gap-2">
+                        <DropdownMenuItem className="gap-2" onClick={() => handleEdit(ministry)}>
                           <Edit className="w-4 h-4" />
                           Editar
                         </DropdownMenuItem>
@@ -197,6 +210,12 @@ export default function Ministries() {
           </div>
         )}
       </div>
+
+      <MinistryFormDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        ministry={selectedMinistry}
+      />
     </MainLayout>
   );
 }

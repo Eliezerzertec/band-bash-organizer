@@ -21,17 +21,30 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { useChurches, useDeleteChurch } from '@/hooks/useChurches';
+import { useChurches, useDeleteChurch, Church } from '@/hooks/useChurches';
 import { Skeleton } from '@/components/ui/skeleton';
+import { ChurchFormDialog } from '@/components/forms/ChurchFormDialog';
 
 export default function Churches() {
   const [searchTerm, setSearchTerm] = useState('');
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [selectedChurch, setSelectedChurch] = useState<Church | null>(null);
   const { data: churches, isLoading, error } = useChurches();
   const deleteChurch = useDeleteChurch();
 
   const filteredChurches = (churches || []).filter(church =>
     church.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const handleCreate = () => {
+    setSelectedChurch(null);
+    setDialogOpen(true);
+  };
+
+  const handleEdit = (church: Church) => {
+    setSelectedChurch(church);
+    setDialogOpen(true);
+  };
 
   return (
     <MainLayout 
@@ -50,7 +63,7 @@ export default function Churches() {
               className="pl-10 input-modern"
             />
           </div>
-          <Button className="gap-2 btn-gradient-primary">
+          <Button className="gap-2 btn-gradient-primary" onClick={handleCreate}>
             <Plus className="w-4 h-4" />
             Nova Igreja
           </Button>
@@ -100,7 +113,7 @@ export default function Churches() {
               {searchTerm ? 'Nenhuma igreja corresponde à sua busca.' : 'Comece cadastrando sua primeira igreja.'}
             </p>
             {!searchTerm && (
-              <Button className="gap-2 btn-gradient-primary">
+              <Button className="gap-2 btn-gradient-primary" onClick={handleCreate}>
                 <Plus className="w-4 h-4" />
                 Nova Igreja
               </Button>
@@ -136,7 +149,7 @@ export default function Churches() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem className="gap-2">
+                      <DropdownMenuItem className="gap-2" onClick={() => handleEdit(church)}>
                         <Edit className="w-4 h-4" />
                         Editar
                       </DropdownMenuItem>
@@ -188,6 +201,12 @@ export default function Churches() {
           </div>
         )}
       </div>
+
+      <ChurchFormDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        church={selectedChurch}
+      />
     </MainLayout>
   );
 }
