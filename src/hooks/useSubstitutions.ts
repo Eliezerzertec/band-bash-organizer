@@ -38,6 +38,11 @@ export function useSubstitutionRequests(status?: 'pending' | 'accepted' | 'rejec
   return useQuery({
     queryKey: ['substitution_requests', status],
     queryFn: async () => {
+      // Calcular data de 30 dias atrás
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      const thirtyDaysAgoISO = thirtyDaysAgo.toISOString();
+      
       let query = supabase
         .from('substitution_requests')
         .select(`
@@ -50,6 +55,7 @@ export function useSubstitutionRequests(status?: 'pending' | 'accepted' | 'rejec
             schedule:schedules(id, title, event_date, start_time)
           )
         `)
+        .gte('created_at', thirtyDaysAgoISO)
         .order('created_at', { ascending: false });
       
       if (status) {

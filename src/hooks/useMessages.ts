@@ -65,6 +65,7 @@ export function useUnreadMessagesCount() {
 
 export function useMarkMessageAsRead() {
   const queryClient = useQueryClient();
+  const { toast } = useToast();
 
   return useMutation({
     mutationFn: async (id: string) => {
@@ -79,7 +80,13 @@ export function useMarkMessageAsRead() {
       return data;
     },
     onSuccess: () => {
+      // Invalidar ambas as queries para atualizar lista e contador
       queryClient.invalidateQueries({ queryKey: ['messages'] });
+      queryClient.invalidateQueries({ queryKey: ['messages', 'unread_count'] });
+      toast({ title: 'Mensagem marcada como lida' });
+    },
+    onError: (error) => {
+      toast({ title: 'Erro ao marcar como lida', description: error.message, variant: 'destructive' });
     },
   });
 }

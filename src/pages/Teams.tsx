@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,35 +11,52 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useTeams, useDeleteTeam, Team } from '@/hooks/useTeams';
+import { useConfirmDelete } from '@/hooks/useConfirmDelete';
 import { Skeleton } from '@/components/ui/skeleton';
-import { TeamFormDialog } from '@/components/forms/TeamFormDialog';
 
 const colorVariants: Record<number, string> = {
-  0: 'bg-primary/10 text-primary border-primary/20',
-  1: 'bg-success/10 text-success border-success/20',
-  2: 'bg-accent/10 text-accent border-accent/20',
-  3: 'bg-warning/10 text-warning border-warning/20',
+  0: 'bg-primary',
+  1: 'bg-success',
+  2: 'bg-accent',
+  3: 'bg-warning',
+};
+
+const colorMap: Record<string, string> = {
+  blue: 'bg-blue-500',
+  red: 'bg-red-500',
+  green: 'bg-green-500',
+  purple: 'bg-purple-500',
+  orange: 'bg-orange-500',
+  pink: 'bg-pink-500',
+  indigo: 'bg-indigo-500',
+  cyan: 'bg-cyan-500',
+  slate: 'bg-slate-500',
+};
+
+const getTeamBorderColor = (color: string | null | undefined): string => {
+  if (!color) return colorVariants[0];
+  return colorMap[color] || colorVariants[0];
 };
 
 export default function Teams() {
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
   const { data: teams, isLoading, error } = useTeams();
   const deleteTeam = useDeleteTeam();
+  const { confirmDelete } = useConfirmDelete();
 
   const filteredTeams = (teams || []).filter(team =>
     team.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const handleCreate = () => {
-    setSelectedTeam(null);
-    setDialogOpen(true);
+    navigate('/teams/new');
   };
 
   const handleEdit = (team: Team) => {
-    setSelectedTeam(team);
-    setDialogOpen(true);
+    navigate(`/teams/${team.id}/edit`);
   };
 
   return (
@@ -66,27 +84,19 @@ export default function Teams() {
 
         {/* Loading State */}
         {isLoading && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+          <div className="space-y-3">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="card-elevated overflow-hidden">
-                <div className="p-4 border-b">
-                  <div className="flex items-center gap-3">
-                    <Skeleton className="w-10 h-10 rounded-lg" />
-                    <div>
-                      <Skeleton className="h-5 w-32 mb-1" />
-                      <Skeleton className="h-4 w-48" />
+              <div key={i} className="card-elevated p-4">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <Skeleton className="h-6 w-40 mb-2" />
+                    <Skeleton className="h-4 w-64 mb-3" />
+                    <div className="flex flex-wrap gap-4">
+                      <Skeleton className="h-4 w-32" />
+                      <Skeleton className="h-4 w-32" />
                     </div>
                   </div>
-                </div>
-                <div className="p-4">
-                  <Skeleton className="h-4 w-24 mb-4" />
-                  <div className="flex flex-wrap gap-2 mb-4">
-                    <Skeleton className="h-8 w-32 rounded-full" />
-                    <Skeleton className="h-8 w-32 rounded-full" />
-                  </div>
-                  <div className="pt-4 border-t border-border">
-                    <Skeleton className="h-4 w-40" />
-                  </div>
+                  <Skeleton className="h-8 w-8" />
                 </div>
               </div>
             ))}
@@ -103,129 +113,106 @@ export default function Teams() {
         {/* Empty State */}
         {!isLoading && !error && filteredTeams.length === 0 && (
           <div className="card-elevated p-12 text-center">
-            <div className="w-16 h-16 rounded-full bg-muted mx-auto mb-4 flex items-center justify-center">
-              <Users className="w-8 h-8 text-muted-foreground" />
-            </div>
+            <Users className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
             <h3 className="text-lg font-medium text-foreground mb-2">
               Nenhuma equipe encontrada
             </h3>
-            <p className="text-muted-foreground mb-4">
+            <p className="text-muted-foreground">
               {searchTerm ? 'Nenhuma equipe corresponde à sua busca.' : 'Comece criando sua primeira equipe.'}
             </p>
-            {!searchTerm && (
-              <Button className="gap-2 btn-gradient-primary" onClick={handleCreate}>
-                <Plus className="w-4 h-4" />
-                Nova Equipe
-              </Button>
-            )}
           </div>
         )}
 
-        {/* Teams Grid */}
+        {/* Teams List */}
         {!isLoading && !error && filteredTeams.length > 0 && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-            {filteredTeams.map((team, index) => {
-              const colorClass = colorVariants[index % 4];
+          <div className="space-y-3">
+            {filteredTeams.map((team) => {
               const members = team.team_members || [];
-
+              const borderColor = getTeamBorderColor(team.color);
               return (
-                <div 
-                  key={team.id}
-                  className="card-elevated overflow-hidden animate-fade-in hover:shadow-elevated transition-shadow"
-                >
-                  {/* Header */}
-                  <div className={`p-4 ${colorClass} border-b`}>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-lg bg-white/20 flex items-center justify-center">
-                          <Music className="w-5 h-5" />
-                        </div>
-                        <div>
-                          <h3 className="font-semibold">{team.name}</h3>
-                          <p className="text-sm opacity-80">{team.description || team.ministry?.name || ''}</p>
-                        </div>
+                <div key={team.id} className="card-elevated p-4 hover:shadow-md transition-shadow">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <div className={`w-1 h-6 rounded-full ${borderColor}`}></div>
+                        <h3 className="font-semibold text-lg text-foreground">
+                          {team.name}
+                        </h3>
                       </div>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8">
-                            <MoreVertical className="w-4 h-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem className="gap-2" onClick={() => handleEdit(team)}>
-                            <Edit className="w-4 h-4" />
-                            Editar
-                          </DropdownMenuItem>
-                          <DropdownMenuItem 
-                            className="gap-2 text-destructive"
-                            onClick={() => deleteTeam.mutate(team.id)}
-                            disabled={deleteTeam.isPending}
-                          >
-                            {deleteTeam.isPending ? (
-                              <Loader2 className="w-4 h-4 animate-spin" />
-                            ) : (
-                              <Trash2 className="w-4 h-4" />
-                            )}
-                            Excluir
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                  </div>
-
-                  {/* Members */}
-                  <div className="p-4">
-                    <div className="flex items-center gap-2 mb-4">
-                      <Users className="w-4 h-4 text-muted-foreground" />
-                      <span className="text-sm text-muted-foreground">
-                        {members.length} membros
-                      </span>
-                    </div>
-
-                    <div className="flex flex-wrap gap-2 mb-4">
-                      {members.slice(0, 4).map((member) => (
-                        <div 
-                          key={member.id}
-                          className="flex items-center gap-2 px-2 py-1 rounded-full bg-muted"
-                        >
-                          <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden">
-                            {member.profile?.avatar_url ? (
-                              <img 
-                                src={member.profile.avatar_url} 
-                                alt={member.profile.name}
-                                className="w-full h-full object-cover"
-                              />
-                            ) : (
-                              <span className="text-xs font-medium text-primary">
-                                {member.profile?.name?.charAt(0) || '?'}
+                      {team.description && (
+                        <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
+                          {team.description}
+                        </p>
+                      )}
+                      <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
+                        <div className="flex items-center gap-2">
+                          <Users className="w-4 h-4" />
+                          {members.length} membro{members.length !== 1 ? 's' : ''}
+                        </div>
+                        {team.ministry && (
+                          <div className="flex items-center gap-2">
+                            <Music className="w-4 h-4" />
+                            {team.ministry.name}
+                          </div>
+                        )}
+                        {team.leader && (
+                          <div className="flex items-center gap-2">
+                            <Calendar className="w-4 h-4" />
+                            Líder: {team.leader.name}
+                          </div>
+                        )}
+                      </div>
+                      {members.length > 0 && (
+                        <div className="mt-3 pt-3 border-t border-border">
+                          <p className="text-xs font-medium text-muted-foreground mb-2">
+                            Membros:
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                            {members.slice(0, 5).map((member) => (
+                              <span 
+                                key={member.id}
+                                className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-muted text-xs font-medium text-foreground"
+                              >
+                                {member.profile?.name?.split(' ')[0] || 'Membro'}
+                                {member.role_in_team && (
+                                  <span className="text-muted-foreground">({member.role_in_team})</span>
+                                )}
+                              </span>
+                            ))}
+                            {members.length > 5 && (
+                              <span className="text-xs text-muted-foreground">
+                                +{members.length - 5} mais
                               </span>
                             )}
                           </div>
-                          <span className="text-xs font-medium text-foreground">
-                            {member.profile?.name?.split(' ')[0] || 'Membro'}
-                          </span>
-                          {member.role_in_team && (
-                            <span className="text-xs text-muted-foreground">
-                              {member.role_in_team}
-                            </span>
-                          )}
-                        </div>
-                      ))}
-                      {members.length > 4 && (
-                        <div className="px-3 py-1 rounded-full bg-muted text-xs text-muted-foreground">
-                          +{members.length - 4}
                         </div>
                       )}
                     </div>
-
-                    {/* Leader */}
-                    {team.leader && (
-                      <div className="flex items-center gap-2 pt-4 border-t border-border">
-                        <Calendar className="w-4 h-4 text-primary" />
-                        <span className="text-sm text-muted-foreground">Líder:</span>
-                        <span className="text-sm font-medium text-foreground">{team.leader.name}</span>
-                      </div>
-                    )}
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="sm" className="ml-2">
+                          <MoreVertical className="w-4 h-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem className="gap-2" onClick={() => handleEdit(team)}>
+                          <Edit className="w-4 h-4" />
+                          Editar
+                        </DropdownMenuItem>
+                        <DropdownMenuItem 
+                          className="gap-2 text-destructive"
+                          onClick={() => confirmDelete(team.name, () => deleteTeam.mutate(team.id))}
+                          disabled={deleteTeam.isPending}
+                        >
+                          {deleteTeam.isPending ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Trash2 className="w-4 h-4" />
+                          )}
+                          Deletar
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                 </div>
               );
@@ -233,12 +220,6 @@ export default function Teams() {
           </div>
         )}
       </div>
-
-      <TeamFormDialog
-        open={dialogOpen}
-        onOpenChange={setDialogOpen}
-        team={selectedTeam}
-      />
     </MainLayout>
   );
 }

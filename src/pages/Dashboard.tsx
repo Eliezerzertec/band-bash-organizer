@@ -2,11 +2,12 @@ import { MainLayout } from '@/components/layout/MainLayout';
 import { StatCard } from '@/components/dashboard/StatCard';
 import { UpcomingEvents } from '@/components/dashboard/UpcomingEvents';
 import { RecentActivity } from '@/components/dashboard/RecentActivity';
-import { MembersChart } from '@/components/dashboard/MembersChart';
+import { MemberEvaluationsChart } from '@/components/dashboard/MemberEvaluationsChart';
 import { PerformanceChart } from '@/components/dashboard/PerformanceChart';
 import { SubstitutionRequests } from '@/components/dashboard/SubstitutionRequests';
 import { useAuth } from '@/contexts/AuthContext';
 import { useDashboardStats } from '@/hooks/useDashboardStats';
+import { useCurrentProfile } from '@/hooks/useProfiles';
 import { 
   Users, 
   Calendar, 
@@ -17,13 +18,15 @@ import {
 } from 'lucide-react';
 
 export default function Dashboard() {
-  const { user, hasRole } = useAuth();
+  const { hasRole } = useAuth();
+  const { data: profile } = useCurrentProfile();
   const isAdmin = hasRole('admin');
   const { data: stats, isLoading } = useDashboardStats();
+  const userName = profile?.name?.split(' ')[0] || 'Usuário';
 
   return (
     <MainLayout 
-      title={`Olá, ${user?.name?.split(' ')[0] || 'Usuário'}!`}
+      title={`Olá, ${userName}!`}
       subtitle="Bem-vindo ao painel de gestão do ministério de louvor"
     >
       <div className="space-y-5 md:space-y-6">
@@ -104,7 +107,7 @@ export default function Dashboard() {
 
           {/* Right Column */}
           <div className="space-y-5 md:space-y-6">
-            <MembersChart />
+            <MemberEvaluationsChart />
             <RecentActivity />
           </div>
         </div>

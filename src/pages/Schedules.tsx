@@ -1,42 +1,60 @@
 import { useState } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Button } from '@/components/ui/button';
-import { 
-  Plus, 
-  Calendar as CalendarIcon, 
-  List, 
-  ChevronLeft, 
-  ChevronRight,
-  Clock,
-  MapPin,
-  Users,
-  MoreVertical,
-  Edit,
-  Trash2,
-  Loader2
-} from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { useSchedules, useDeleteSchedule, Schedule } from '@/hooks/useSchedules';
-import { Skeleton } from '@/components/ui/skeleton';
-import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
-import { ScheduleFormDialog } from '@/components/forms/ScheduleFormDialog';
+import { Input } from '@/components/ui/input';
+import { Plus, Search, Calendar, Clock, MapPin, MoreVertical, Edit, Trash2, Loader2, LogOut } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-
-const daysOfWeek = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { useSchedules, useDeleteSchedule, Schedule, useRemoveScheduleAssignment } from '@/hooks/useSchedules';
+import { useConfirmDelete } from '@/hooks/useConfirmDelete';
+import { useCurrentProfile } from '@/hooks/useProfiles';
+import { useAuth } from '@/contexts/AuthContext';
+import { Skeleton } from '@/components/ui/skeleton';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import { ScheduleFormDialog } from '@/components/forms/ScheduleFormDialog';
+import { toast } from 'sonner';
 
 export default function Schedules() {
-  const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
-  const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [searchTerm, setSearchTerm] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedSchedule, setSelectedSchedule] = useState<Schedule | null>(null);
-  const { data: schedules, isLoading, error } = useSchedules();
+  const [removeDialogOpen, setRemoveDialogOpen] = useState(false);
+  const [assignmentToRemove, setAssignmentToRemove] = useState<any>(null);
+  const { data: schedules = [], isLoading, error } = useSchedules();
+  const { data: profile } = useCurrentProfile();
+  const { hasRole } = useAuth();
+  const isAdmin = hasRole('admin');
   const deleteSchedule = useDeleteSchedule();
+  const removeAssignment = useRemoveScheduleAssignment();
+  const { confirmDelete } = useConfirmDelete();
+
+  const filteredSchedules = schedules.filter(schedule => {
+    // Admins see all schedules, members only see their own
+    if (!isAdmin && profile?.id) {
+      const isMemberAssigned = schedule.schedule_assignments?.some(
+        sa => sa.profile_id === profile.id
+      );
+      if (!isMemberAssigned) return false;
+    }
+    
+    return schedule.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (schedule.description || '').toLowerCase().includes(searchTerm.toLowerCase());
+  });
 
   const handleCreate = () => {
     setSelectedSchedule(null);
@@ -48,42 +66,29 @@ export default function Schedules() {
     setDialogOpen(true);
   };
 
-  const getDaysInMonth = (date: Date) => {
-    const year = date.getFullYear();
-    const month = date.getMonth();
-    const firstDay = new Date(year, month, 1);
-    const lastDay = new Date(year, month + 1, 0);
-    const daysInMonth = lastDay.getDate();
-    const startingDay = firstDay.getDay();
-    
-    const days: (Date | null)[] = [];
-    
-    for (let i = 0; i < startingDay; i++) {
-      days.push(null);
-    }
-    
-    for (let i = 1; i <= daysInMonth; i++) {
-      days.push(new Date(year, month, i));
-    }
-    
-    return days;
+  const handleRemoveFromSchedule = (assignment: any) => {
+    setAssignmentToRemove(assignment);
+    setRemoveDialogOpen(true);
   };
 
-  const days = getDaysInMonth(currentMonth);
-
-  const getEventsForDate = (date: Date | null) => {
-    if (!date || !schedules) return [];
-    const dateStr = format(date, 'yyyy-MM-dd');
-    return schedules.filter(schedule => schedule.event_date === dateStr);
-  };
-
-  const formatMonth = (date: Date) => {
-    return format(date, "MMMM 'de' yyyy", { locale: ptBR });
+  const confirmRemoveFromSchedule = () => {
+    if (assignmentToRemove) {
+      removeAssignment.mutate(assignmentToRemove.id, {
+        onSuccess: () => {
+          toast.success('Você foi removido da escala!');
+          setRemoveDialogOpen(false);
+          setAssignmentToRemove(null);
+        },
+        onError: (error) => {
+          toast.error(`Erro ao remover: ${error.message}`);
+        },
+      });
+    }
   };
 
   const formatDate = (dateStr: string) => {
     try {
-      return format(new Date(dateStr), 'dd/MM/yyyy', { locale: ptBR });
+      return format(new Date(dateStr), "d 'de' MMM yyyy", { locale: ptBR });
     } catch {
       return dateStr;
     }
@@ -101,40 +106,29 @@ export default function Schedules() {
       <div className="space-y-6">
         {/* Actions Bar */}
         <div className="flex flex-col sm:flex-row gap-4 justify-between">
-          <div className="flex gap-2">
-            <Button 
-              variant={viewMode === 'list' ? 'default' : 'outline'} 
-              size="sm"
-              onClick={() => setViewMode('list')}
-              className="gap-2"
-            >
-              <List className="w-4 h-4" />
-              Lista
-            </Button>
-            <Button 
-              variant={viewMode === 'calendar' ? 'default' : 'outline'} 
-              size="sm"
-              onClick={() => setViewMode('calendar')}
-              className="gap-2"
-            >
-              <CalendarIcon className="w-4 h-4" />
-              Calendário
-            </Button>
+          <div className="relative flex-1 max-w-md">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input 
+              placeholder="Buscar escalas..." 
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10 input-modern"
+            />
           </div>
-          <Button className="gap-2 btn-gradient-primary" onClick={handleCreate}>
-            <Plus className="w-4 h-4" />
-            Nova Escala
-          </Button>
+          {isAdmin && (
+            <Button className="gap-2 btn-gradient-primary" onClick={handleCreate}>
+              <Plus className="w-4 h-4" />
+              Nova Escala
+            </Button>
+          )}
         </div>
 
         {/* Loading State */}
         {isLoading && (
           <div className="card-elevated p-6">
             <div className="space-y-4">
-              {[1, 2, 3, 4].map((i) => (
-                <div key={i} className="flex items-center gap-4">
-                  <Skeleton className="h-12 w-full" />
-                </div>
+              {[1, 2, 3].map((i) => (
+                <Skeleton key={i} className="h-20 w-full" />
               ))}
             </div>
           </div>
@@ -148,179 +142,132 @@ export default function Schedules() {
         )}
 
         {/* Empty State */}
-        {!isLoading && !error && (!schedules || schedules.length === 0) && (
+        {!isLoading && !error && filteredSchedules.length === 0 && (
           <div className="card-elevated p-12 text-center">
-            <div className="w-16 h-16 rounded-full bg-muted mx-auto mb-4 flex items-center justify-center">
-              <CalendarIcon className="w-8 h-8 text-muted-foreground" />
-            </div>
+            <Calendar className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
             <h3 className="text-lg font-medium text-foreground mb-2">
               Nenhuma escala encontrada
             </h3>
-            <p className="text-muted-foreground mb-4">
-              Comece criando sua primeira escala.
+            <p className="text-muted-foreground">
+              {searchTerm ? 'Nenhuma escala corresponde à sua busca.' : 'Comece criando sua primeira escala.'}
             </p>
-            <Button className="gap-2 btn-gradient-primary" onClick={handleCreate}>
-              <Plus className="w-4 h-4" />
-              Nova Escala
-            </Button>
           </div>
         )}
 
-        {!isLoading && !error && schedules && schedules.length > 0 && viewMode === 'list' && (
-          <div className="card-elevated overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-muted/50">
-                  <tr>
-                    <th className="text-left p-4 text-sm font-medium text-muted-foreground">Evento</th>
-                    <th className="text-left p-4 text-sm font-medium text-muted-foreground">Data/Hora</th>
-                    <th className="text-left p-4 text-sm font-medium text-muted-foreground">Local</th>
-                    <th className="text-left p-4 text-sm font-medium text-muted-foreground">Membros</th>
-                    <th className="w-10"></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {schedules.map((schedule) => (
-                    <tr key={schedule.id} className="border-t border-border table-row-hover">
-                      <td className="p-4">
-                        <span className="font-medium text-foreground">{schedule.title}</span>
-                        {schedule.ministry?.name && <p className="text-sm text-muted-foreground">{schedule.ministry.name}</p>}
-                      </td>
-                      <td className="p-4">
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <CalendarIcon className="w-4 h-4" />
-                          {formatDate(schedule.event_date)}
-                          <Clock className="w-4 h-4 ml-2" />
-                          {formatTime(schedule.start_time)}
-                        </div>
-                      </td>
-                      <td className="p-4">
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <MapPin className="w-4 h-4" />
-                          {schedule.location || 'Não definido'}
-                        </div>
-                      </td>
-                      <td className="p-4">
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <Users className="w-4 h-4" />
-                          {schedule.schedule_assignments?.length || 0} escalado(s)
-                        </div>
-                      </td>
-                      <td className="p-4">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8">
-                              <MoreVertical className="w-4 h-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem className="gap-2" onClick={() => handleEdit(schedule)}>
-                              <Edit className="w-4 h-4" />
-                              Editar
-                            </DropdownMenuItem>
-                            <DropdownMenuItem 
-                              className="gap-2 text-destructive"
-                              onClick={() => deleteSchedule.mutate(schedule.id)}
-                              disabled={deleteSchedule.isPending}
-                            >
-                              {deleteSchedule.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-                              Excluir
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
-        {!isLoading && !error && schedules && schedules.length > 0 && viewMode === 'calendar' && (
-          /* Calendar View */
-          <div className="card-elevated p-6">
-            {/* Calendar Header */}
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-lg font-semibold text-foreground capitalize">
-                {formatMonth(currentMonth)}
-              </h3>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1))}
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                </Button>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1))}
-                >
-                  <ChevronRight className="w-4 h-4" />
-                </Button>
-              </div>
-            </div>
-
-            {/* Calendar Grid */}
-            <div className="grid grid-cols-7 gap-px bg-border rounded-lg overflow-hidden">
-              {/* Day Headers */}
-              {daysOfWeek.map((day) => (
-                <div 
-                  key={day}
-                  className="bg-muted/50 p-3 text-center text-sm font-medium text-muted-foreground"
-                >
-                  {day}
-                </div>
-              ))}
-              
-              {/* Calendar Days */}
-              {days.map((date, index) => {
-                const events = getEventsForDate(date);
-                const isToday = date && date.toDateString() === new Date().toDateString();
-                
-                return (
-                  <div 
-                    key={index}
-                    className={cn(
-                      "bg-card min-h-[100px] p-2 transition-colors",
-                      date && "hover:bg-muted/50 cursor-pointer",
-                      !date && "bg-muted/20"
+        {/* Schedules List */}
+        {!isLoading && !error && filteredSchedules.length > 0 && (
+          <div className="space-y-3">
+            {filteredSchedules.map((schedule) => (
+              <div key={schedule.id} className="card-elevated p-4 hover:shadow-md transition-shadow">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-lg text-foreground mb-1">
+                      {schedule.title}
+                    </h3>
+                    {schedule.description && (
+                      <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
+                        {schedule.description}
+                      </p>
                     )}
-                  >
-                    {date && (
-                      <>
-                        <span className={cn(
-                          "inline-flex items-center justify-center w-7 h-7 text-sm rounded-full",
-                          isToday && "bg-primary text-primary-foreground font-medium"
-                        )}>
-                          {date.getDate()}
-                        </span>
-                        <div className="mt-1 space-y-1">
-                          {events.slice(0, 2).map((event) => (
-                            <div 
-                              key={event.id}
-                              className="px-2 py-1 rounded text-xs bg-primary/10 text-primary font-medium truncate"
-                            >
-                              {formatTime(event.start_time)} {event.title}
-                            </div>
-                          ))}
-                          {events.length > 2 && (
-                            <div className="text-xs text-muted-foreground px-2">
-                              +{events.length - 2} mais
-                            </div>
-                          )}
+                    <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
+                      <div className="flex items-center gap-1">
+                        <Calendar className="w-4 h-4" />
+                        {formatDate(schedule.event_date)}
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Clock className="w-4 h-4" />
+                        {formatTime(schedule.start_time)}
+                        {schedule.end_time && ` - ${formatTime(schedule.end_time)}`}
+                      </div>
+                      {schedule.location && (
+                        <div className="flex items-center gap-1">
+                          <MapPin className="w-4 h-4" />
+                          {schedule.location}
                         </div>
-                      </>
+                      )}
+                    </div>
+                    {schedule.schedule_assignments && schedule.schedule_assignments.length > 0 && (
+                      <div className="mt-3 pt-3 border-t border-border">
+                        <p className="text-xs font-medium text-muted-foreground mb-2">
+                          {schedule.schedule_assignments.length} membro{schedule.schedule_assignments.length !== 1 ? 's' : ''} escalado{schedule.schedule_assignments.length !== 1 ? 's' : ''}
+                        </p>
+                      </div>
                     )}
                   </div>
-                );
-              })}
-            </div>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="sm" className="ml-2">
+                        <MoreVertical className="w-4 h-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      {isAdmin && (
+                        <>
+                          <DropdownMenuItem onClick={() => handleEdit(schedule)} className="gap-2">
+                            <Edit className="w-4 h-4" />
+                            Editar
+                          </DropdownMenuItem>
+                          <DropdownMenuItem 
+                            onClick={() => confirmDelete(schedule.title, () => deleteSchedule.mutate(schedule.id))}
+                            className="gap-2 text-destructive"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                            Deletar
+                          </DropdownMenuItem>
+                        </>
+                      )}
+                      {!isAdmin && profile?.id && (
+                        <>
+                          {schedule.schedule_assignments?.map(assignment => 
+                            assignment.profile_id === profile.id && (
+                              <DropdownMenuItem 
+                                key={assignment.id}
+                                onClick={() => handleRemoveFromSchedule(assignment)}
+                                className="gap-2 text-destructive"
+                              >
+                                <LogOut className="w-4 h-4" />
+                                Remover da Escala
+                              </DropdownMenuItem>
+                            )
+                          )}
+                        </>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </div>
+
+      <ScheduleFormDialog 
+        open={dialogOpen} 
+        onOpenChange={setDialogOpen} 
+        schedule={selectedSchedule} 
+      />
+
+      {/* Dialog de Confirmação para Remover da Escala */}
+      <AlertDialog open={removeDialogOpen} onOpenChange={setRemoveDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remover da Escala?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Você tem certeza que deseja se remover desta escala? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmRemoveFromSchedule}
+              disabled={removeAssignment.isPending}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {removeAssignment.isPending ? 'Removendo...' : 'Remover'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </MainLayout>
   );
 }

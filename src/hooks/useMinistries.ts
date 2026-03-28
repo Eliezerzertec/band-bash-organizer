@@ -23,8 +23,8 @@ export function useMinistries(churchId?: string) {
         .from('ministries')
         .select(`
           *,
-          church:churches(name),
-          leader:profiles!ministries_leader_id_fkey(name)
+          church:church_id(name),
+          leader:leader_id(name)
         `)
         .order('name');
       
@@ -48,8 +48,8 @@ export function useMinistry(id: string) {
         .from('ministries')
         .select(`
           *,
-          church:churches(name),
-          leader:profiles!ministries_leader_id_fkey(name)
+          church:church_id(name),
+          leader:leader_id(name)
         `)
         .eq('id', id)
         .maybeSingle();

@@ -4,12 +4,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { 
   Search, 
-  Filter, 
   MoreVertical,
   Edit,
-  Mail,
-  Phone,
-  Users
+  Trash2,
+  Users,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
@@ -18,15 +16,41 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { useProfiles, Profile } from '@/hooks/useProfiles';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { useProfiles, Profile, useDeleteMember } from '@/hooks/useProfiles';
+import { useAuth } from '@/contexts/AuthContext';
 import { Skeleton } from '@/components/ui/skeleton';
 import { MemberFormDialog } from '@/components/forms/MemberFormDialog';
+import { CreateMemberDialog } from '@/components/forms/CreateMemberDialog';
+import { ActivityStatusBar } from '@/components/dashboard/ActivityMonitor';
+import { toast } from 'sonner';
 
 export default function Members() {
+  const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [selectedMember, setSelectedMember] = useState<Profile | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [memberToDelete, setMemberToDelete] = useState<Profile | null>(null);
   const { data: members, isLoading, error } = useProfiles();
+  const deleteProfile = useDeleteMember();
 
   const filteredMembers = (members || []).filter(member =>
     member.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -38,6 +62,47 @@ export default function Members() {
     setSelectedMember(member);
     setDialogOpen(true);
   };
+
+  const handleDeleteClick = (member: Profile) => {
+    setMemberToDelete(member);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleConfirmDelete = () => {
+    if (memberToDelete) {
+      deleteProfile.mutate(memberToDelete.id, {
+        onSuccess: () => {
+          toast.success('Membro deletado com sucesso!');
+          setDeleteDialogOpen(false);
+          setMemberToDelete(null);
+        },
+        onError: (error) => {
+          toast.error(`Erro ao deletar: ${error.message}`);
+        },
+      });
+    }
+  };
+
+  // Verificar se é admin
+  const isAdmin = user?.role === 'admin';
+
+  // Se não for admin, redirecionar ou mostrar erro
+  if (!isAdmin) {
+    return (
+      <MainLayout 
+        title="Acesso Negado" 
+        subtitle="Você não tem permissão para acessar esta página"
+      >
+        <div className="card-elevated p-12 text-center">
+          <Users className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+          <h3 className="text-lg font-medium mb-2">Acesso Restrito</h3>
+          <p className="text-muted-foreground">
+            Apenas administradores podem gerenciar membros.
+          </p>
+        </div>
+      </MainLayout>
+    );
+  }
 
   return (
     <MainLayout 
@@ -55,21 +120,27 @@ export default function Members() {
               className="pl-10 input-modern"
             />
           </div>
-          <Button variant="outline" className="gap-2">
-            <Filter className="w-4 h-4" />
-            Filtros
-          </Button>
+          <div className="flex gap-3">
+            <Button className="gap-2 btn-gradient-primary" onClick={() => setCreateDialogOpen(true)}>
+              <Users className="w-4 h-4" />
+              Novo Membro
+            </Button>
+          </div>
         </div>
 
         {isLoading && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="card-elevated p-6">
-                <Skeleton className="w-14 h-14 rounded-xl mb-4" />
-                <Skeleton className="h-5 w-32 mb-2" />
-                <Skeleton className="h-4 w-48" />
-              </div>
-            ))}
+          <div className="card-elevated">
+            <div className="space-y-4 p-6">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="flex gap-4">
+                  <Skeleton className="w-10 h-10 rounded-lg flex-shrink-0" />
+                  <div className="flex-1 space-y-2">
+                    <Skeleton className="h-4 w-32" />
+                    <Skeleton className="h-3 w-48" />
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         )}
 
@@ -84,82 +155,120 @@ export default function Members() {
             <Users className="w-8 h-8 text-muted-foreground mx-auto mb-4" />
             <h3 className="text-lg font-medium mb-2">Nenhum membro encontrado</h3>
             <p className="text-muted-foreground">
-              {searchTerm ? 'Nenhum membro corresponde à sua busca.' : 'Os membros serão exibidos quando você tiver acesso.'}
+              {searchTerm ? 'Nenhum membro corresponde à sua busca.' : 'Comece criando seu primeiro membro.'}
             </p>
           </div>
         )}
 
         {!isLoading && !error && filteredMembers.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredMembers.map((member) => (
-              <div key={member.id} className="card-elevated p-6 animate-fade-in hover:shadow-elevated transition-shadow">
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex items-center gap-4">
-                    <div className="w-14 h-14 rounded-xl bg-primary/10 flex items-center justify-center overflow-hidden">
-                      {member.avatar_url ? (
-                        <img src={member.avatar_url} alt={member.name} className="w-full h-full object-cover" />
-                      ) : (
-                        <span className="text-lg font-semibold text-primary">{member.name.charAt(0)}</span>
-                      )}
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-foreground">{member.name}</h3>
-                      <p className="text-sm text-muted-foreground">Membro</p>
-                    </div>
-                  </div>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8">
-                        <MoreVertical className="w-4 h-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem className="gap-2" onClick={() => handleEdit(member)}>
-                        <Edit className="w-4 h-4" />
-                        Editar
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-                <div className="flex flex-wrap gap-2 mb-4">
-                  {(member.musical_skills || []).slice(0, 3).map((skill) => (
-                    <span key={skill} className="px-2 py-1 rounded-full bg-primary/10 text-primary text-xs font-medium">
-                      {skill}
-                    </span>
-                  ))}
-                  {(member.musical_skills || []).length > 3 && (
-                    <span className="px-2 py-1 rounded-full bg-muted text-muted-foreground text-xs">
-                      +{member.musical_skills.length - 3}
-                    </span>
-                  )}
-                </div>
-                <div className="space-y-2 text-sm">
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <Mail className="w-4 h-4" />
-                    <span className="truncate">{member.email}</span>
-                  </div>
-                  {member.phone && (
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <Phone className="w-4 h-4" />
-                      <span>{member.phone}</span>
-                    </div>
-                  )}
-                </div>
-                <div className="flex justify-end mt-4 pt-4 border-t border-border">
-                  <span className={cn(
-                    "px-2 py-1 rounded-full text-xs font-medium",
-                    member.status === 'active' ? "bg-success-light text-success" : "bg-muted text-muted-foreground"
-                  )}>
-                    {member.status === 'active' ? 'Ativo' : 'Inativo'}
-                  </span>
-                </div>
-              </div>
-            ))}
+          <div className="card-elevated">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Membro</TableHead>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Telefone</TableHead>
+                  <TableHead>Habilidades</TableHead>
+                  <TableHead>Atividade</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="w-12 text-right">Ações</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredMembers.map((member) => (
+                  <TableRow key={member.id} className="animate-fade-in hover:bg-muted/50">
+                    <TableCell className="font-medium">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center overflow-hidden flex-shrink-0">
+                          {member.avatar_url ? (
+                            <img src={member.avatar_url} alt={member.name} className="w-full h-full object-cover" />
+                          ) : (
+                            <span className="text-sm font-semibold text-primary">{member.name.charAt(0)}</span>
+                          )}
+                        </div>
+                        <span>{member.name}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{member.email}</TableCell>
+                    <TableCell className="text-sm">{member.phone || '-'}</TableCell>
+                    <TableCell className="text-sm">
+                      <div className="flex flex-wrap gap-1">
+                        {(member.musical_skills || []).slice(0, 2).map((skill) => (
+                          <span key={skill} className="px-2 py-1 rounded-full bg-primary/10 text-primary text-xs font-medium">
+                            {skill}
+                          </span>
+                        ))}
+                        {(member.musical_skills || []).length > 2 && (
+                          <span className="px-2 py-1 rounded-full bg-muted text-muted-foreground text-xs">
+                            +{member.musical_skills.length - 2}
+                          </span>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <ActivityStatusBar member={member} />
+                    </TableCell>
+                    <TableCell>
+                      <span className={cn(
+                        "px-2 py-1 rounded-full text-xs font-medium",
+                        member.status === 'active' ? "bg-success-light text-success" : "bg-muted text-muted-foreground"
+                      )}>
+                        {member.status === 'active' ? 'Ativo' : 'Inativo'}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <MoreVertical className="w-4 h-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem className="gap-2" onClick={() => handleEdit(member)}>
+                            <Edit className="w-4 h-4" />
+                            Editar
+                          </DropdownMenuItem>
+                          <DropdownMenuItem 
+                            className="gap-2 text-destructive focus:text-destructive"
+                            onClick={() => handleDeleteClick(member)}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                            Deletar
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           </div>
         )}
       </div>
 
       <MemberFormDialog open={dialogOpen} onOpenChange={setDialogOpen} member={selectedMember} />
+      <CreateMemberDialog open={createDialogOpen} onOpenChange={setCreateDialogOpen} />
+
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja deletar <strong>{memberToDelete?.name}</strong>? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="flex gap-3 justify-end">
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleConfirmDelete}
+              disabled={deleteProfile.isPending}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleteProfile.isPending ? 'Deletando...' : 'Deletar'}
+            </AlertDialogAction>
+          </div>
+        </AlertDialogContent>
+      </AlertDialog>
     </MainLayout>
   );
 }

@@ -22,6 +22,7 @@ export interface Team {
   description: string | null;
   ministry_id: string;
   leader_id: string | null;
+  color: string | null;
   created_at: string;
   updated_at: string;
   ministry?: { name: string; church_id: string };

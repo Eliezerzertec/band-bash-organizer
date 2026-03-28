@@ -1,9 +1,16 @@
-import { Bell, Search, User, Settings, Menu } from 'lucide-react';
+import { MessageSquare, Search, User, Settings, Menu, Loader2 } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useCurrentProfile } from '@/hooks/useProfiles';
+import { useMessages } from '@/hooks/useMessages';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
+import { useNavigate } from 'react-router-dom';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import { notificationService } from '@/services/notificationService';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -21,7 +28,42 @@ interface HeaderProps {
 
 export function Header({ title, subtitle, onMenuClick }: HeaderProps) {
   const { user, logout } = useAuth();
+  const { data: currentProfile } = useCurrentProfile();
+  const { data: messages, isLoading: messagesLoading } = useMessages();
   const isMobile = useIsMobile();
+  const navigate = useNavigate();
+  const [messagesOpen, setMessagesOpen] = useState(false);
+  
+  // Ref para rastrear mensagens já notificadas
+  const notifiedMessageIds = useRef<Set<string>>(new Set());
+
+  // Contar mensagens não lidas
+  const unreadMessages = messages?.filter(m => !m.read_at) || [];
+  const unreadCount = unreadMessages.length;
+
+  // Solicitar permissão de notificações ao carregar
+  useEffect(() => {
+    notificationService.requestPermission();
+  }, []);
+
+  // Monitorar novas mensagens não lidas
+  useEffect(() => {
+    if (!messages || messages.length === 0) return;
+
+    unreadMessages.forEach(message => {
+      // Se a mensagem é nova (não foi notificada ainda) e é não lida
+      if (!notifiedMessageIds.current.has(message.id)) {
+        notifiedMessageIds.current.add(message.id);
+        
+        // Mostrar notificação web
+        notificationService.notifyNewMessage(
+          message.sender?.name || 'Sistema',
+          message.subject || 'Nova mensagem',
+          message.content?.substring(0, 100)
+        );
+      }
+    });
+  }, [unreadMessages]);
 
   return (
     <header className="header-gradient px-4 md:px-8 py-4 md:py-6">
@@ -55,31 +97,81 @@ export function Header({ title, subtitle, onMenuClick }: HeaderProps) {
             />
           </div>
 
-          {/* Notifications */}
-          <DropdownMenu>
+          {/* Messages */}
+          <DropdownMenu open={messagesOpen} onOpenChange={setMessagesOpen}>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon" className="relative text-header-foreground/70 hover:text-header-foreground hover:bg-white/10 rounded-xl">
-                <Bell className="w-5 h-5" />
-                <span className="absolute -top-0.5 -right-0.5 w-5 h-5 bg-warning text-warning-foreground text-[10px] font-bold rounded-full flex items-center justify-center shadow-lg">
-                  3
-                </span>
+                <MessageSquare className="w-5 h-5" />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 w-5 h-5 bg-destructive text-white text-[10px] font-bold rounded-full flex items-center justify-center shadow-lg animate-pulse">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                )}
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-80 rounded-xl shadow-xl">
-              <DropdownMenuLabel>Notificações</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem className="flex flex-col items-start gap-1 py-3">
-                <span className="font-medium text-sm">Nova escala disponível</span>
-                <span className="text-xs text-muted-foreground">Você foi escalado para domingo, 19h</span>
-              </DropdownMenuItem>
-              <DropdownMenuItem className="flex flex-col items-start gap-1 py-3">
-                <span className="font-medium text-sm">Pedido de substituição</span>
-                <span className="text-xs text-muted-foreground">Carlos solicitou substituição</span>
-              </DropdownMenuItem>
-              <DropdownMenuItem className="flex flex-col items-start gap-1 py-3">
-                <span className="font-medium text-sm">Mensagem do líder</span>
-                <span className="text-xs text-muted-foreground">Ensaio confirmado para sábado</span>
-              </DropdownMenuItem>
+            <DropdownMenuContent align="end" className="w-96 rounded-xl shadow-xl">
+              <div className="flex items-center justify-between px-4 py-3">
+                <DropdownMenuLabel className="m-0">Mensagens</DropdownMenuLabel>
+                {unreadCount > 0 && (
+                  <span className="text-xs bg-destructive text-white px-2 py-1 rounded-full font-semibold">
+                    {unreadCount} não lida{unreadCount !== 1 ? 's' : ''}
+                  </span>
+                )}
+              </div>
+              <DropdownMenuSeparator className="m-0" />
+              
+              {messagesLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+                </div>
+              ) : unreadMessages.length > 0 ? (
+                <div className="max-h-96 overflow-y-auto">
+                  {unreadMessages.slice(0, 5).map((message) => (
+                    <DropdownMenuItem 
+                      key={message.id}
+                      className="flex flex-col items-start gap-2 py-3 px-4 cursor-pointer hover:bg-accent/80 border-l-2 border-l-destructive bg-destructive/5"
+                      onClick={() => {
+                        navigate('/messages');
+                        setMessagesOpen(false);
+                      }}
+                    >
+                      <div className="flex items-start justify-between w-full gap-2">
+                        <span className="font-semibold text-sm text-foreground flex-1">{message.subject}</span>
+                        <span className="text-[10px] text-muted-foreground whitespace-nowrap flex-shrink-0">
+                          {message.created_at && format(new Date(message.created_at), 'HH:mm', { locale: ptBR })}
+                        </span>
+                      </div>
+                      {message.content && (
+                        <p className="text-xs text-muted-foreground line-clamp-2">
+                          {message.content}
+                        </p>
+                      )}
+                      <span className="inline-block bg-destructive/20 text-destructive text-[10px] font-medium px-2 py-0.5 rounded">
+                        Não lida
+                      </span>
+                    </DropdownMenuItem>
+                  ))}
+                  {unreadMessages.length > 5 && (
+                    <>
+                      <DropdownMenuSeparator className="m-0" />
+                      <DropdownMenuItem
+                        className="justify-center py-2 text-sm text-primary font-semibold"
+                        onClick={() => {
+                          navigate('/messages');
+                          setMessagesOpen(false);
+                        }}
+                      >
+                        Ver todas as {unreadMessages.length} mensagens
+                      </DropdownMenuItem>
+                    </>
+                  )}
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+                  <MessageSquare className="w-8 h-8 mb-2 opacity-50" />
+                  <p className="text-sm">Sem mensagens não lidas</p>
+                </div>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
 
@@ -96,24 +188,35 @@ export function Header({ title, subtitle, onMenuClick }: HeaderProps) {
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="gap-2 md:gap-3 hover:bg-white/10 rounded-xl px-2 md:pl-3 md:pr-4">
                 <div className="w-8 h-8 md:w-9 md:h-9 rounded-xl bg-white/15 overflow-hidden shadow-md">
-                  {user?.avatar ? (
-                    <img src={user.avatar} alt={user.name} className="w-full h-full object-cover" />
+                  {currentProfile?.avatar_url ? (
+                    <img src={currentProfile.avatar_url} alt={currentProfile.name} className="w-full h-full object-cover" />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center">
                       <User className="w-4 h-4 md:w-5 md:h-5 text-header-foreground/70" />
                     </div>
                   )}
                 </div>
-                <span className="hidden md:block text-sm font-medium text-header-foreground">{user?.name}</span>
+                <span className="hidden md:block text-sm font-medium text-header-foreground">{currentProfile?.name || user?.email}</span>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="rounded-xl shadow-xl">
               <DropdownMenuLabel>Minha Conta</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem>Perfil</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => navigate('/profile')}>Perfil</DropdownMenuItem>
               <DropdownMenuItem>Configurações</DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={logout} className="text-destructive">
+              <DropdownMenuItem 
+                onClick={async () => {
+                  try {
+                    await logout();
+                    // Navegar para login após logout bem-sucedido
+                    navigate('/login', { replace: true });
+                  } catch (error) {
+                    console.error('Erro ao fazer logout:', error);
+                  }
+                }} 
+                className="text-destructive"
+              >
                 Sair
               </DropdownMenuItem>
             </DropdownMenuContent>

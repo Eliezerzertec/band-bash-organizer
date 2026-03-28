@@ -1,13 +1,27 @@
 import { Calendar, Clock, Users, MapPin } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { AnimatedIcon } from '@/components/ui/animated-icon';
-import { useUpcomingSchedules } from '@/hooks/useSchedules';
+import { useSchedules } from '@/hooks/useSchedules';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 export function UpcomingEvents() {
-  const { data: schedules, isLoading, error } = useUpcomingSchedules(4);
+  const { data: schedules, isLoading: schedulesLoading } = useSchedules();
+
+  // Filtrar apenas as escalas futuras (todos os cultos)
+  const userUpcomingSchedules = schedules
+    ?.filter(schedule => {
+      const eventDate = new Date(schedule.event_date);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      // Mostrar apenas escalas futuras
+      return eventDate >= today;
+    })
+    .slice(0, 4) || [];
+
+  const isLoading = schedulesLoading;
 
   const formatDate = (dateStr: string) => {
     try {
@@ -57,22 +71,16 @@ export function UpcomingEvents() {
         </div>
       )}
 
-      {error && (
-        <div className="text-center py-8">
-          <p className="text-sm text-destructive">Erro ao carregar eventos</p>
-        </div>
-      )}
-
-      {!isLoading && !error && (!schedules || schedules.length === 0) && (
+      {!isLoading && (!userUpcomingSchedules || userUpcomingSchedules.length === 0) && (
         <div className="text-center py-8">
           <Calendar className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
-          <p className="text-sm text-muted-foreground">Nenhum evento próximo</p>
+          <p className="text-sm text-muted-foreground">Nenhuma escala próxima</p>
         </div>
       )}
 
-      {!isLoading && !error && schedules && schedules.length > 0 && (
+      {!isLoading && userUpcomingSchedules && userUpcomingSchedules.length > 0 && (
         <div className="space-y-3">
-          {schedules.map((schedule) => {
+          {userUpcomingSchedules.map((schedule) => {
             const { day, month } = formatDate(schedule.event_date);
             const assignmentsCount = schedule.schedule_assignments?.length || 0;
             

@@ -85,6 +85,11 @@ export default function Substitutions() {
       subtitle={`${pendingCount} pedidos pendentes`}
     >
       <div className="space-y-6">
+        {/* Informação sobre período */}
+        <div className="bg-info-light border border-info rounded-lg p-3 text-sm text-info dark:bg-info/20 dark:text-info-foreground">
+          📅 Mostrando todos os pedidos de substituição dos últimos <strong>30 dias</strong>
+        </div>
+
         {/* Filter Tabs */}
         <div className="flex gap-2">
           {(['all', 'pending', 'accepted', 'rejected'] as const).map((status) => (

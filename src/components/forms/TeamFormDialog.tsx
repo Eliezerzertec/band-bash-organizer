@@ -26,7 +26,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Users, FileText, User } from 'lucide-react';
 import { Team, useCreateTeam, useUpdateTeam } from '@/hooks/useTeams';
 import { useMinistries } from '@/hooks/useMinistries';
 import { useProfiles } from '@/hooks/useProfiles';
@@ -113,7 +113,10 @@ export function TeamFormDialog({ open, onOpenChange, team }: TeamFormDialogProps
               name="name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Nome *</FormLabel>
+                  <FormLabel className="flex items-center gap-2">
+                    <Users className="w-4 h-4 text-primary" />
+                    Nome *
+                  </FormLabel>
                   <FormControl>
                     <Input placeholder="Nome da equipe" {...field} />
                   </FormControl>
@@ -126,7 +129,10 @@ export function TeamFormDialog({ open, onOpenChange, team }: TeamFormDialogProps
               name="ministry_id"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Ministério *</FormLabel>
+                  <FormLabel className="flex items-center gap-2">
+                    <Music className="w-4 h-4 text-primary" />
+                    Ministério *
+                  </FormLabel>
                   <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
                       <SelectTrigger>
@@ -150,7 +156,10 @@ export function TeamFormDialog({ open, onOpenChange, team }: TeamFormDialogProps
               name="leader_id"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Líder</FormLabel>
+                  <FormLabel className="flex items-center gap-2">
+                    <User className="w-4 h-4 text-primary" />
+                    Líder
+                  </FormLabel>
                   <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
                       <SelectTrigger>
@@ -175,7 +184,10 @@ export function TeamFormDialog({ open, onOpenChange, team }: TeamFormDialogProps
               name="description"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Descrição</FormLabel>
+                  <FormLabel className="flex items-center gap-2">
+                    <FileText className="w-4 h-4 text-primary" />
+                    Descrição
+                  </FormLabel>
                   <FormControl>
                     <Textarea placeholder="Descrição da equipe" {...field} />
                   </FormControl>

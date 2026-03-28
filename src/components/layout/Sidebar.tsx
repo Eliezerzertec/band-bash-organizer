@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useCurrentProfile } from '@/hooks/useProfiles';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -27,12 +28,12 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
-  { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
+  { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard', adminOnly: true },
   { icon: Church, label: 'Igrejas', path: '/churches', adminOnly: true },
   { icon: Music, label: 'Ministérios', path: '/ministries', adminOnly: true },
   { icon: Users, label: 'Membros', path: '/members', adminOnly: true },
   { icon: UsersRound, label: 'Equipes', path: '/teams', adminOnly: true },
-  { icon: Calendar, label: 'Escalas', path: '/schedules' },
+  { icon: Calendar, label: 'Escalas', path: '/schedules', adminOnly: true },
   { icon: ArrowLeftRight, label: 'Substituições', path: '/substitutions' },
   { icon: MessageSquare, label: 'Mensagens', path: '/messages' },
   { icon: BarChart3, label: 'Relatórios', path: '/reports', adminOnly: true },
@@ -45,6 +46,7 @@ interface SidebarProps {
 
 export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const { user, logout, hasRole } = useAuth();
+  const { data: currentProfile } = useCurrentProfile();
   const navigate = useNavigate();
   const location = useLocation();
   const isMobile = useIsMobile();
@@ -160,8 +162,8 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
             effectiveCollapsed && !isMobile && "flex-col"
           )}>
             <div className="w-10 h-10 rounded-xl bg-sidebar-accent overflow-hidden flex-shrink-0 shadow-md">
-              {user?.avatar ? (
-                <img src={user.avatar} alt={user.name} className="w-full h-full object-cover" />
+              {currentProfile?.avatar_url ? (
+                <img src={currentProfile.avatar_url} alt={currentProfile.name} className="w-full h-full object-cover" />
               ) : (
                 <div className="w-full h-full flex items-center justify-center">
                   <User className="w-5 h-5 text-sidebar-foreground/60" />
@@ -170,12 +172,20 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
             </div>
             {(!effectiveCollapsed || isMobile) && (
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-sidebar-foreground truncate">{user?.name}</p>
+                <p className="text-sm font-medium text-sidebar-foreground truncate">{currentProfile?.name}</p>
                 <p className="text-xs text-sidebar-foreground/50 capitalize">{user?.role === 'admin' ? 'Administrador' : 'Membro'}</p>
               </div>
             )}
             <button
-              onClick={logout}
+              onClick={async () => {
+                try {
+                  await logout();
+                  // Navegar para login após logout bem-sucedido
+                  navigate('/login', { replace: true });
+                } catch (error) {
+                  console.error('Erro ao fazer logout:', error);
+                }
+              }}
               className="p-2 rounded-xl hover:bg-sidebar-accent/50 transition-colors text-sidebar-foreground/50 hover:text-sidebar-foreground"
               title="Sair"
             >

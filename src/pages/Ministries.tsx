@@ -20,6 +20,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useMinistries, useDeleteMinistry, Ministry } from '@/hooks/useMinistries';
+import { useConfirmDelete } from '@/hooks/useConfirmDelete';
 import { Skeleton } from '@/components/ui/skeleton';
 import { MinistryFormDialog } from '@/components/forms/MinistryFormDialog';
 
@@ -29,6 +30,7 @@ export default function Ministries() {
   const [selectedMinistry, setSelectedMinistry] = useState<Ministry | null>(null);
   const { data: ministries, isLoading, error } = useMinistries();
   const deleteMinistry = useDeleteMinistry();
+  const { confirmDelete } = useConfirmDelete();
 
   const filteredMinistries = (ministries || []).filter(ministry =>
     ministry.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -151,7 +153,7 @@ export default function Ministries() {
                         </DropdownMenuItem>
                         <DropdownMenuItem 
                           className="gap-2 text-destructive"
-                          onClick={() => deleteMinistry.mutate(ministry.id)}
+                          onClick={() => confirmDelete(ministry.name, () => deleteMinistry.mutate(ministry.id))}
                           disabled={deleteMinistry.isPending}
                         >
                           {deleteMinistry.isPending ? (

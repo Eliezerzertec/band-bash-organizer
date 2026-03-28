@@ -22,6 +22,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useChurches, useDeleteChurch, Church } from '@/hooks/useChurches';
+import { useConfirmDelete } from '@/hooks/useConfirmDelete';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ChurchFormDialog } from '@/components/forms/ChurchFormDialog';
 
@@ -31,6 +32,7 @@ export default function Churches() {
   const [selectedChurch, setSelectedChurch] = useState<Church | null>(null);
   const { data: churches, isLoading, error } = useChurches();
   const deleteChurch = useDeleteChurch();
+  const { confirmDelete } = useConfirmDelete();
 
   const filteredChurches = (churches || []).filter(church =>
     church.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -155,7 +157,7 @@ export default function Churches() {
                       </DropdownMenuItem>
                       <DropdownMenuItem 
                         className="gap-2 text-destructive"
-                        onClick={() => deleteChurch.mutate(church.id)}
+                        onClick={() => confirmDelete(church.name, () => deleteChurch.mutate(church.id))}
                         disabled={deleteChurch.isPending}
                       >
                         {deleteChurch.isPending ? (

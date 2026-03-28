@@ -9,15 +9,19 @@ import { ThemeProvider } from "next-themes";
 // Pages
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
+import MemberDashboard from "./pages/MemberDashboard";
 import Churches from "./pages/Churches";
 import Ministries from "./pages/Ministries";
 import Members from "./pages/Members";
 import Teams from "./pages/Teams";
+import TeamForm from "./pages/TeamForm";
 import Schedules from "./pages/Schedules";
 import Substitutions from "./pages/Substitutions";
 import Messages from "./pages/Messages";
 import Reports from "./pages/Reports";
+import DetailedReports from "./pages/DetailedReports";
 import NotFound from "./pages/NotFound";
+import Profile from "./pages/Profile";
 
 const queryClient = new QueryClient();
 
@@ -38,7 +42,7 @@ function ProtectedRoute({ children, adminOnly = false }: { children: React.React
   }
 
   if (adminOnly && !hasRole('admin')) {
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to="/schedules" replace />;
   }
 
   return <>{children}</>;
@@ -64,6 +68,9 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
 }
 
 function AppRoutes() {
+  const { hasRole } = useAuth();
+  const isAdmin = hasRole('admin');
+
   return (
     <Routes>
       {/* Public Routes */}
@@ -73,13 +80,21 @@ function AppRoutes() {
         </PublicRoute>
       } />
       
-      {/* Root redirect */}
-      <Route path="/" element={<Navigate to="/dashboard" replace />} />
+      {/* Root redirect - condicional baseado no role */}
+      <Route path="/" element={
+        isAdmin ? <Navigate to="/dashboard" replace /> : <Navigate to="/member-dashboard" replace />
+      } />
 
       {/* Protected Routes */}
       <Route path="/dashboard" element={
-        <ProtectedRoute>
+        <ProtectedRoute adminOnly>
           <Dashboard />
+        </ProtectedRoute>
+      } />
+
+      <Route path="/member-dashboard" element={
+        <ProtectedRoute>
+          <MemberDashboard />
         </ProtectedRoute>
       } />
       
@@ -107,8 +122,20 @@ function AppRoutes() {
         </ProtectedRoute>
       } />
       
+      <Route path="/teams/new" element={
+        <ProtectedRoute adminOnly>
+          <TeamForm />
+        </ProtectedRoute>
+      } />
+
+      <Route path="/teams/:teamId/edit" element={
+        <ProtectedRoute adminOnly>
+          <TeamForm />
+        </ProtectedRoute>
+      } />
+      
       <Route path="/schedules" element={
-        <ProtectedRoute>
+        <ProtectedRoute adminOnly>
           <Schedules />
         </ProtectedRoute>
       } />
@@ -124,10 +151,22 @@ function AppRoutes() {
           <Messages />
         </ProtectedRoute>
       } />
+
+      <Route path="/profile" element={
+        <ProtectedRoute>
+          <Profile />
+        </ProtectedRoute>
+      } />
       
       <Route path="/reports" element={
         <ProtectedRoute adminOnly>
           <Reports />
+        </ProtectedRoute>
+      } />
+
+      <Route path="/reports/detailed" element={
+        <ProtectedRoute adminOnly>
+          <DetailedReports />
         </ProtectedRoute>
       } />
 

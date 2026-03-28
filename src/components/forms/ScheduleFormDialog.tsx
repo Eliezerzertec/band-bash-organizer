@@ -26,10 +26,14 @@ import {
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { Loader2 } from 'lucide-react';
-import { Schedule, useCreateSchedule, useUpdateSchedule } from '@/hooks/useSchedules';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Loader2, Calendar, Clock, MapPin, FileText, Music, X } from 'lucide-react';
+import { Schedule, useCreateSchedule, useUpdateSchedule, useAddScheduleAssignment, useRemoveScheduleAssignment } from '@/hooks/useSchedules';
 import { useChurches } from '@/hooks/useChurches';
 import { useMinistries } from '@/hooks/useMinistries';
+import { useProfiles } from '@/hooks/useProfiles';
+import { useTeams } from '@/hooks/useTeams';
+import { Label } from '@/components/ui/label';
 
 const scheduleSchema = z.object({
   title: z.string().trim().min(1, 'Título é obrigatório').max(100, 'Máximo 100 caracteres'),
@@ -40,9 +44,17 @@ const scheduleSchema = z.object({
   location: z.string().trim().max(255, 'Máximo 255 caracteres').optional().or(z.literal('')),
   church_id: z.string().min(1, 'Igreja é obrigatória'),
   ministry_id: z.string().optional().or(z.literal('')),
+  schedule_type: z.enum(['normal', 'especial']).default('normal'),
 });
 
 type ScheduleFormData = z.infer<typeof scheduleSchema>;
+
+interface MemberAssignment {
+  profile_id: string;
+  name: string;
+  role_assigned: string;
+  team_id?: string;
+}
 
 interface ScheduleFormDialogProps {
   open: boolean;
@@ -50,12 +62,37 @@ interface ScheduleFormDialogProps {
   schedule?: Schedule | null;
 }
 
+// Mensagens randômicas para descrição
+const descricaoMensagens = [
+  'Vamos estar todos juntos para louvar o Senhor com muita alegria!',
+  'Um momento especial de adoração e comunhão com o nosso Deus!',
+  'Venha celebrar o poder e a graça do Senhor conosco!',
+  'Juntos vamos exaltar o nome do Senhor em grande louvor!',
+  'Uma noite abençoada de celebração e comunhão espiritual!',
+  'Vamos levantar nossas vozes em gratidão ao Altíssimo!',
+  'Prepare o seu coração para um culto especial de celebração!',
+  'Nos vemos para um encontro inesquecível com o Senhor!',
+  'Uma oportunidade de crescimento espiritual e comunhão!',
+  'Que este seja um culto de bênção e renovação espiritual!',
+];
+
+function getRandomDescricao(): string {
+  return descricaoMensagens[Math.floor(Math.random() * descricaoMensagens.length)];
+}
+
 export function ScheduleFormDialog({ open, onOpenChange, schedule }: ScheduleFormDialogProps) {
   const createSchedule = useCreateSchedule();
   const updateSchedule = useUpdateSchedule();
+  const addAssignment = useAddScheduleAssignment();
+  const removeAssignment = useRemoveScheduleAssignment();
   const { data: churches } = useChurches();
   const { data: ministries } = useMinistries();
+  const { data: profiles } = useProfiles();
+  const { data: teams } = useTeams();
   const isEditing = !!schedule;
+
+  const [selectedMembers, setSelectedMembers] = useState<MemberAssignment[]>([]);
+  const [selectedTeams, setSelectedTeams] = useState<string[]>([]);
 
   const form = useForm<ScheduleFormData>({
     resolver: zodResolver(scheduleSchema),
@@ -68,205 +105,417 @@ export function ScheduleFormDialog({ open, onOpenChange, schedule }: ScheduleFor
       location: '',
       church_id: '',
       ministry_id: '',
+      schedule_type: 'normal',
     },
   });
 
   useEffect(() => {
-    if (schedule) {
-      form.reset({
-        title: schedule.title,
-        description: schedule.description || '',
-        event_date: schedule.event_date,
-        start_time: schedule.start_time,
-        end_time: schedule.end_time || '',
-        location: schedule.location || '',
-        church_id: schedule.church_id,
-        ministry_id: schedule.ministry_id || '',
-      });
-    } else {
-      form.reset({
-        title: '',
-        description: '',
-        event_date: new Date().toISOString().split('T')[0],
-        start_time: '09:00',
-        end_time: '',
-        location: '',
-        church_id: churches?.[0]?.id || '',
-        ministry_id: '',
-      });
+    if (open) {
+      if (schedule) {
+        form.reset({
+          title: schedule.title || '',
+          description: schedule.description || '',
+          event_date: schedule.event_date,
+          start_time: schedule.start_time || '',
+          end_time: schedule.end_time || '',
+          location: schedule.location || '',
+          church_id: schedule.church_id || (schedule.church?.id || ''),
+          ministry_id: schedule.ministry_id || (schedule.ministry?.id || ''),
+          schedule_type: schedule.schedule_type || 'normal',
+        });
+        
+        // Buscar nomes dos membros do perfil
+        const assignments = schedule.schedule_assignments || [];
+        const membersWithNames = assignments.map((assignment) => {
+          const memberProfile = profiles?.find(p => p.id === assignment.profile_id);
+          return {
+            profile_id: assignment.profile_id,
+            name: memberProfile?.name || assignment.profile?.name || 'Membro',
+            role_assigned: assignment.role_assigned || '',
+            team_id: assignment.team_id || undefined,
+          };
+        });
+        
+        setSelectedMembers(membersWithNames);
+      } else {
+        const today = new Date().toISOString().split('T')[0];
+        const defaultChurchId = churches && churches.length > 0 ? churches[0].id : '';
+        form.reset({
+          title: 'Culto de Celebração',
+          description: getRandomDescricao(),
+          event_date: today,
+          start_time: '19:00',
+          end_time: '20:30',
+          location: '',
+          church_id: defaultChurchId,
+          ministry_id: '',
+          schedule_type: 'normal',
+        });
+        setSelectedMembers([]);
+        setSelectedTeams([]);
+      }
     }
-  }, [schedule, form, churches]);
+  }, [schedule, open, form, churches, profiles]);
+
+  const toggleMember = (memberId: string, memberName: string) => {
+    setSelectedMembers((prev) => {
+      const existing = prev.find((m) => m.profile_id === memberId);
+      if (existing) {
+        return prev.filter((m) => m.profile_id !== memberId);
+      } else {
+        return [
+          ...prev,
+          {
+            profile_id: memberId,
+            name: memberName,
+            role_assigned: '',
+            team_id: undefined,
+          },
+        ];
+      }
+    });
+  };
 
   const onSubmit = async (data: ScheduleFormData) => {
-    const payload = {
-      title: data.title,
-      description: data.description || null,
-      event_date: data.event_date,
-      start_time: data.start_time,
-      end_time: data.end_time || null,
-      location: data.location || null,
-      church_id: data.church_id,
-      ministry_id: data.ministry_id || null,
-      created_by: null,
-    };
+    try {
+      if (selectedTeams.length === 0) {
+        alert('Selecione pelo menos uma equipe para a escala');
+        return;
+      }
 
-    if (isEditing) {
-      await updateSchedule.mutateAsync({ id: schedule.id, ...payload });
-    } else {
-      await createSchedule.mutateAsync(payload);
+      const payload = {
+        title: data.title,
+        description: data.description || null,
+        event_date: data.event_date,
+        start_time: data.start_time,
+        end_time: data.end_time || null,
+        location: data.location || null,
+        church_id: data.church_id,
+        ministry_id: data.ministry_id || null,
+        created_by: null,
+      };
+
+      let scheduleId: string;
+
+      if (isEditing && schedule) {
+        await updateSchedule.mutateAsync({ id: schedule.id, ...payload } as any);
+        scheduleId = schedule.id;
+        
+        // Remover assignments antigos
+        const oldAssignments = schedule.schedule_assignments || [];
+        for (const assignment of oldAssignments) {
+          await removeAssignment.mutateAsync(assignment.id);
+        }
+      } else {
+        const result = await createSchedule.mutateAsync(payload as any);
+        scheduleId = result.id;
+      }
+
+      // Adicionar novos assignments para cada equipe selecionada
+      for (const teamId of selectedTeams) {
+        const team = teams?.find(t => t.id === teamId);
+        if (team) {
+          // Adicionar cada membro da equipe
+          const teamMembers = team.team_members || [];
+          for (const member of teamMembers) {
+            await addAssignment.mutateAsync({
+              schedule_id: scheduleId,
+              profile_id: member.profile_id,
+              team_id: teamId,
+              role_assigned: member.skill || null,
+            });
+          }
+        }
+      }
+
+      onOpenChange(false);
+      form.reset();
+      setSelectedTeams([]);
+      setSelectedMembers([]);
+    } catch (error) {
+      console.error('Erro ao salvar escala:', error);
+      alert('Erro ao salvar escala');
     }
-    onOpenChange(false);
-    form.reset();
   };
 
   const isPending = createSchedule.isPending || updateSchedule.isPending;
+  const filteredMembers = (profiles || []).filter((p) => p.status === 'active');
+  const selectedChurchId = form.watch('church_id');
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{isEditing ? 'Editar Escala' : 'Nova Escala'}</DialogTitle>
         </DialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="title"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Título *</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Título do evento" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <div className="grid grid-cols-2 gap-4">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            {/* Informações Básicas */}
+            <div className="space-y-4">
+              <h3 className="font-semibold text-sm">Informações Básicas</h3>
+
               <FormField
                 control={form.control}
-                name="event_date"
+                name="title"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Data *</FormLabel>
+                    <FormLabel className="flex items-center gap-2">
+                      <Music className="w-4 h-4 text-primary" />
+                      Título *
+                    </FormLabel>
                     <FormControl>
-                      <Input type="date" {...field} />
+                      <Input placeholder="Ex: Louvor - Domingo 24/01" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
+
               <FormField
                 control={form.control}
-                name="start_time"
+                name="description"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Horário Início *</FormLabel>
+                    <FormLabel className="flex items-center gap-2">
+                      <FileText className="w-4 h-4 text-primary" />
+                      Descrição
+                    </FormLabel>
                     <FormControl>
-                      <Input type="time" {...field} />
+                      <Textarea placeholder="Detalhes sobre a escala" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="end_time"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Horário Fim</FormLabel>
-                    <FormControl>
-                      <Input type="time" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+
+              <div className="grid grid-cols-3 gap-4">
+                <FormField
+                  control={form.control}
+                  name="event_date"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="flex items-center gap-2">
+                        <Calendar className="w-4 h-4 text-primary" />
+                        Data *
+                      </FormLabel>
+                      <FormControl>
+                        <Input type="date" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="start_time"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="flex items-center gap-2">
+                        <Clock className="w-4 h-4 text-primary" />
+                        Hora Início *
+                      </FormLabel>
+                      <FormControl>
+                        <Input type="time" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="end_time"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Hora Fim</FormLabel>
+                      <FormControl>
+                        <Input type="time" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
               <FormField
                 control={form.control}
                 name="location"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Local</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Local do evento" {...field} />
-                    </FormControl>
+                    <FormLabel className="flex items-center gap-2">
+                      <MapPin className="w-4 h-4 text-primary" />
+                      Local
+                    </FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value || ''}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione o local" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="templo-principal">Templo Principal</SelectItem>
+                        <SelectItem value="templinho">Templinho</SelectItem>
+                        <SelectItem value="templo-kids">Templo Kids</SelectItem>
+                      </SelectContent>
+                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}
               />
             </div>
-            <FormField
-              control={form.control}
-              name="church_id"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Igreja *</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione a igreja" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {churches?.map((church) => (
-                        <SelectItem key={church.id} value={church.id}>
-                          {church.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
+
+            {/* Igreja e Ministério */}
+            <div className="space-y-4">
+              <h3 className="font-semibold text-sm">Igreja e Ministério</h3>
+
+              <FormField
+                control={form.control}
+                name="church_id"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Igreja *</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione a igreja" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {churches?.map((church) => (
+                          <SelectItem key={church.id} value={church.id}>
+                            {church.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="ministry_id"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Ministério</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value || ''}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione o ministério (opcional)" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {ministries?.map((ministry) => (
+                          <SelectItem key={ministry.id} value={ministry.id}>
+                            {ministry.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            {/* Tipo de Chamado */}
+            <div className="space-y-4">
+              <FormField
+                control={form.control}
+                name="schedule_type"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Tipo de Chamado *</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione o tipo" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="normal">Normal</SelectItem>
+                        <SelectItem value="especial">Especial</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            {/* Seleção de Equipes */}
+            <div className="space-y-4">
+              <h3 className="font-semibold text-sm">Equipes da Escala</h3>
+
+              {/* Equipes Disponíveis */}
+              {teams && teams.length > 0 && (
+                <div className="border rounded-lg p-4 bg-muted/30 max-h-40 overflow-y-auto">
+                  <p className="text-xs font-medium mb-3 text-muted-foreground">Selecionar equipes:</p>
+                  <div className="space-y-2">
+                    {teams.map((team) => {
+                      const isSelected = selectedTeams.includes(team.id);
+                      return (
+                        <div key={team.id} className="flex items-center gap-2">
+                          <Checkbox
+                            id={`team-${team.id}`}
+                            checked={isSelected}
+                            onCheckedChange={() => {
+                              if (isSelected) {
+                                setSelectedTeams((prev) => prev.filter((id) => id !== team.id));
+                              } else {
+                                setSelectedTeams((prev) => [...prev, team.id]);
+                              }
+                            }}
+                          />
+                          <Label htmlFor={`team-${team.id}`} className="text-sm cursor-pointer flex-1">
+                            {team.name}
+                          </Label>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
               )}
-            />
-            <FormField
-              control={form.control}
-              name="ministry_id"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Ministério</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione o ministério" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="">Nenhum</SelectItem>
-                      {ministries?.map((ministry) => (
-                        <SelectItem key={ministry.id} value={ministry.id}>
-                          {ministry.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
+
+              {/* Equipes Selecionadas */}
+              {selectedTeams.length > 0 && (
+                <div className="border rounded-lg p-4 space-y-3">
+                  <p className="text-xs font-medium text-muted-foreground mb-3">
+                    Equipes selecionadas ({selectedTeams.length}):
+                  </p>
+                  <div className="space-y-2">
+                    {selectedTeams.map((teamId) => {
+                      const team = teams?.find((t) => t.id === teamId);
+                      return (
+                        <div key={teamId} className="flex items-center gap-2 bg-muted/50 p-2 rounded">
+                          <div className="flex-1">
+                            <p className="text-sm font-medium">{team?.name}</p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setSelectedTeams((prev) => prev.filter((id) => id !== teamId))}
+                            className="text-destructive hover:bg-destructive/10 p-1 rounded"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
               )}
-            />
-            <FormField
-              control={form.control}
-              name="description"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Descrição</FormLabel>
-                  <FormControl>
-                    <Textarea placeholder="Descrição do evento" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <div className="flex justify-end gap-3 pt-4">
+            </div>
+
+            {/* Botões de Ação */}
+            <div className="flex justify-end gap-3 pt-4 border-t">
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                 Cancelar
               </Button>
               <Button type="submit" disabled={isPending}>
                 {isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                {isEditing ? 'Salvar' : 'Criar'}
+                {isEditing ? 'Atualizar' : 'Criar'}
               </Button>
             </div>
           </form>
