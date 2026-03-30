@@ -29,6 +29,7 @@ const churchSchema = z.object({
   address: z.string().trim().max(255, 'Máximo 255 caracteres').optional().or(z.literal('')),
   contact: z.string().trim().max(50, 'Máximo 50 caracteres').optional().or(z.literal('')),
   logo_url: z.string().trim().optional().or(z.literal('')),
+  pastor_name: z.string().trim().max(100, 'Máximo 100 caracteres').optional().or(z.literal('')),
 });
 
 type ChurchFormData = z.infer<typeof churchSchema>;
@@ -55,6 +56,7 @@ export function ChurchFormDialog({ open, onOpenChange, church }: ChurchFormDialo
       address: '',
       contact: '',
       logo_url: '',
+      pastor_name: '',
     },
   });
 
@@ -66,6 +68,7 @@ export function ChurchFormDialog({ open, onOpenChange, church }: ChurchFormDialo
           address: church.address || '',
           contact: church.contact || '',
           logo_url: church.logo_url || '',
+          pastor_name: church.pastor_name || '',
         });
         setLogoPreview(church.logo_url || '');
       } else {
@@ -74,6 +77,7 @@ export function ChurchFormDialog({ open, onOpenChange, church }: ChurchFormDialo
           address: '',
           contact: '',
           logo_url: '',
+          pastor_name: '',
         });
         setLogoPreview('');
       }
@@ -127,6 +131,7 @@ export function ChurchFormDialog({ open, onOpenChange, church }: ChurchFormDialo
       address: data.address || null,
       contact: data.contact || null,
       logo_url: data.logo_url || null,
+      pastor_name: data.pastor_name || null,
     };
 
     if (isEditing && church) {
@@ -273,6 +278,24 @@ export function ChurchFormDialog({ open, onOpenChange, church }: ChurchFormDialo
                   <FormDescription>
                     Telefone ou email principal de contato
                   </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="pastor_name"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="font-semibold">Nome do Pastor</FormLabel>
+                  <FormControl>
+                    <Input
+                      placeholder="Nome do pastor responsável"
+                      {...field}
+                      disabled={isPending}
+                    />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}

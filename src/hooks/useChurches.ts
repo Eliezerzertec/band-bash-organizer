@@ -8,6 +8,7 @@ export interface Church {
   address: string | null;
   contact: string | null;
   logo_url: string | null;
+  pastor_name: string | null;
   created_at: string;
   updated_at: string;
 }
