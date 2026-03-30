@@ -12,6 +12,8 @@ export interface NotificationOptions {
   requireInteraction?: boolean;
 }
 
+const DEFAULT_NOTIFICATION_ICON = '/OIP3.png';
+
 class NotificationService {
   private isSupported: boolean;
   private permission: NotificationPermission;
@@ -67,8 +69,8 @@ class NotificationService {
     try {
       const notification = new Notification(options.title, {
         body: options.body,
-        icon: options.icon || '/logo valechurchPreto.png',
-        badge: options.badge || '/logo valechurchPreto.png',
+        icon: options.icon || DEFAULT_NOTIFICATION_ICON,
+        badge: options.badge || DEFAULT_NOTIFICATION_ICON,
         tag: options.tag || 'default',
         requireInteraction: options.requireInteraction || false,
       });
@@ -92,7 +94,7 @@ class NotificationService {
     return this.notify({
       title: `📨 Nova mensagem de ${senderName}`,
       body: preview || subject || 'Você recebeu uma nova mensagem',
-      icon: '/logo valechurchPreto.png',
+      icon: DEFAULT_NOTIFICATION_ICON,
       tag: 'message',
       requireInteraction: true,
     });
@@ -105,7 +107,7 @@ class NotificationService {
     return this.notify({
       title: `📅 ${title}`,
       body: details || 'Você foi escalado para um novo evento',
-      icon: '/logo valechurchPreto.png',
+      icon: DEFAULT_NOTIFICATION_ICON,
       tag: 'schedule',
       requireInteraction: false,
     });
@@ -118,7 +120,7 @@ class NotificationService {
     return this.notify({
       title: `🔄 ${requesterName} solicitou uma substituição`,
       body: details || 'Verifique a solicitação de substituição',
-      icon: '/logo valechurchPreto.png',
+      icon: DEFAULT_NOTIFICATION_ICON,
       tag: 'substitution',
       requireInteraction: true,
     });
