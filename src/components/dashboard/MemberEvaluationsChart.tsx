@@ -1,22 +1,25 @@
 import { useState } from 'react';
 import { AnimatedIcon } from '@/components/ui/animated-icon';
 import { Award, TrendingUp, TrendingDown, Loader, Lock } from 'lucide-react';
-import { useMemberScores, useCurrentMemberScore, type MemberScore as HookMemberScore } from '@/hooks/useMemberScores';
+import { useAllPeerEvaluationScores, usePeerEvaluationScore } from '@/hooks/usePeerEvaluations';
 import { useAuth } from '@/contexts/AuthContext';
+import { useCurrentProfile } from '@/hooks/useProfiles';
 import { ScoreGauge } from '@/components/ui/ScoreGauge';
 
 interface MemberScore {
   id: string;
   name: string;
   score: number;
-  frequency_score: number;
-  commitment_score: number;
-  substitution_score: number;
-  agenda_block_score: number;
+  avg_musicality: number;
+  avg_punctuality: number;
+  avg_music_preparation: number;
+  avg_group_behavior: number;
+  avg_temperament: number;
+  avg_group_contribution: number;
+  total_evaluators: number;
+  musical_skills: string[];
   trend: 'up' | 'down' | 'stable';
 }
-
-type RawMemberScore = Pick<HookMemberScore, 'id' | 'name' | 'score' | 'frequency_score' | 'commitment_score' | 'substitution_score' | 'agenda_block_score'>;
 
 function getScoreColor(score: number): string {
   if (score >= 800) return 'hsl(150, 80%, 50%)'; // Verde
@@ -27,29 +30,39 @@ function getScoreColor(score: number): string {
 
 export function MemberEvaluationsChart() {
   const { hasRole } = useAuth();
+  const { data: profile } = useCurrentProfile();
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
   
   // Verificar se é admin
   const isAdmin = hasRole('admin');
   
-  // Buscar dados conforme o tipo de usuário
-  const { data: allScoresData, isLoading: allLoading } = useMemberScores(isAdmin);
-  const { data: currentScoreData, isLoading: currentLoading } = useCurrentMemberScore();
+  // Buscar dados reais de avaliação por pares
+  const { data: allScoresData, isLoading: allLoading } = useAllPeerEvaluationScores();
+  const { data: currentScoreData, isLoading: currentLoading } = usePeerEvaluationScore(profile?.id || '');
 
   const isLoading = isAdmin ? allLoading : currentLoading;
-  const memberScoresData = isAdmin ? allScoresData : (currentScoreData ? [currentScoreData] : []);
+  const memberScoresData = isAdmin ? (allScoresData ?? []) : (currentScoreData ? [currentScoreData] : []);
 
-  // Transformar dados do banco em formato para o gráfico
-  const formattedScores: MemberScore[] = (memberScoresData || []).map((score: RawMemberScore) => ({
-    id: score.id,
-    name: score.name || 'Membro Desconhecido',
-    score: score.score,
-    frequency_score: score.frequency_score,
-    commitment_score: score.commitment_score,
-    substitution_score: score.substitution_score,
-    agenda_block_score: score.agenda_block_score,
-    trend: score.score >= 700 ? 'up' : score.score >= 400 ? 'stable' : 'down',
-  }));
+  // Converter para escala 0-1000 para reaproveitar o gauge existente
+  const formattedScores: MemberScore[] = memberScoresData.map((score) => {
+    const overall = Number(score.overall_score || 0);
+    const score1000 = Math.round(overall * 200);
+
+    return {
+      id: score.profile_id,
+      name: score.name || 'Membro',
+      score: score1000,
+      avg_musicality: Number(score.avg_musicality || 0),
+      avg_punctuality: Number(score.avg_punctuality || 0),
+      avg_music_preparation: Number(score.avg_music_preparation || 0),
+      avg_group_behavior: Number(score.avg_group_behavior || 0),
+      avg_temperament: Number(score.avg_temperament || 0),
+      avg_group_contribution: Number(score.avg_group_contribution || 0),
+      total_evaluators: Number(score.total_evaluators || 0),
+      musical_skills: score.musical_skills || [],
+      trend: score1000 >= 800 ? 'up' : score1000 >= 400 ? 'stable' : 'down',
+    };
+  });
 
   // Membro selecionado ou o primeiro da lista
   const selectedMember = selectedMemberId 
@@ -91,8 +104,8 @@ export function MemberEvaluationsChart() {
             </h3>
             <p className="text-sm text-muted-foreground mt-0.5">
               {isAdmin 
-                ? 'Visualize e gerencie os escores de todos os membros'
-                : 'Sua pontuação baseada em frequência e comprometimento'
+                ? 'Visualize os escores calculados com as avaliações dos membros'
+                : 'Sua nota média recebida nas avaliações dos colegas'
               }
             </p>
           </div>
@@ -108,7 +121,7 @@ export function MemberEvaluationsChart() {
             <option value="">Selecionar membro...</option>
             {formattedScores.map(member => (
               <option key={member.id} value={member.id}>
-                {member.name} ({member.score})
+                {member.name} ({(member.score / 200).toFixed(1)}★)
               </option>
             ))}
           </select>
@@ -142,20 +155,28 @@ export function MemberEvaluationsChart() {
       {selectedMember && (
         <div className="grid grid-cols-2 gap-3 mb-6">
           <div className="p-3 rounded-lg bg-muted/30">
-            <p className="text-xs text-muted-foreground">Frequência</p>
-            <p className="text-lg font-bold text-primary">{selectedMember.frequency_score}%</p>
+            <p className="text-xs text-muted-foreground">Musicalidade</p>
+            <p className="text-lg font-bold text-primary">{selectedMember.avg_musicality.toFixed(1)}★</p>
           </div>
           <div className="p-3 rounded-lg bg-muted/30">
-            <p className="text-xs text-muted-foreground">Comprometimento</p>
-            <p className="text-lg font-bold text-primary">{selectedMember.commitment_score}%</p>
+            <p className="text-xs text-muted-foreground">Pontualidade</p>
+            <p className="text-lg font-bold text-primary">{selectedMember.avg_punctuality.toFixed(1)}★</p>
           </div>
           <div className="p-3 rounded-lg bg-muted/30">
-            <p className="text-xs text-muted-foreground">Substitições</p>
-            <p className="text-lg font-bold text-warning">{selectedMember.substitution_score}%</p>
+            <p className="text-xs text-muted-foreground">Tirar músicas</p>
+            <p className="text-lg font-bold text-warning">{selectedMember.avg_music_preparation.toFixed(1)}★</p>
           </div>
           <div className="p-3 rounded-lg bg-muted/30">
-            <p className="text-xs text-muted-foreground">Bloqueios Agenda</p>
-            <p className="text-lg font-bold text-destructive">{selectedMember.agenda_block_score}%</p>
+            <p className="text-xs text-muted-foreground">Comportamento</p>
+            <p className="text-lg font-bold text-destructive">{selectedMember.avg_group_behavior.toFixed(1)}★</p>
+          </div>
+          <div className="p-3 rounded-lg bg-muted/30">
+            <p className="text-xs text-muted-foreground">Temperamento</p>
+            <p className="text-lg font-bold text-primary">{selectedMember.avg_temperament.toFixed(1)}★</p>
+          </div>
+          <div className="p-3 rounded-lg bg-muted/30">
+            <p className="text-xs text-muted-foreground">Contribuição</p>
+            <p className="text-lg font-bold text-primary">{selectedMember.avg_group_contribution.toFixed(1)}★</p>
           </div>
         </div>
       )}
@@ -182,7 +203,7 @@ export function MemberEvaluationsChart() {
                 <div className="min-w-0">
                   <p className="text-sm font-medium text-foreground truncate">{member.name}</p>
                   <p className="text-xs text-muted-foreground">
-                    Freq: {member.frequency_score}% | Comp: {member.commitment_score}%
+                    Avaliadores: {member.total_evaluators} | {(member.score / 200).toFixed(1)}★
                   </p>
                 </div>
               </div>
@@ -215,10 +236,8 @@ export function MemberEvaluationsChart() {
 
       {/* Footer Info */}
       <div className="mt-4 pt-4 border-t border-border/50 text-xs text-muted-foreground space-y-1">
-        <p>• <span className="text-success">Verde (800+):</span> Alto desempenho</p>
-        <p>• <span className="text-primary">Azul (600-799):</span> Desempenho normal</p>
-        <p>• <span className="text-warning">Laranja (400-599):</span> Desempenho abaixo da média</p>
-        <p>• <span className="text-destructive">Vermelho (&lt;400):</span> Baixo desempenho</p>
+        <p>• Escore exibido em escala de 0 a 1000 (nota média × 200)</p>
+        <p>• Nota média real: 1.0 a 5.0 estrelas</p>
       </div>
     </div>
   );

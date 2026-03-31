@@ -1,7 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { useCurrentProfile } from '@/hooks/useProfiles';
 
 // Usamos 'any' para tabelas novas que ainda não constam no schema gerado pelo Supabase
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -34,7 +35,44 @@ export interface PeerEvaluationScore {
   overall_score: number;
   // enriquecido no frontend
   name?: string;
+  email?: string;
+  musical_skills?: string[];
   avatar_url?: string | null;
+}
+
+type ScoreProfileRow = {
+  id: string;
+  name: string | null;
+  email: string | null;
+  avatar_url: string | null;
+  musical_skills: string[] | null;
+};
+
+async function enrichScoresWithMemberData(scores: PeerEvaluationScore[]): Promise<PeerEvaluationScore[]> {
+  if (!scores.length) return scores;
+
+  const ids = [...new Set(scores.map((s) => s.profile_id).filter(Boolean))];
+  if (!ids.length) return scores;
+
+  const { data: profiles, error } = await supabase
+    .from('profiles')
+    .select('id, name, email, avatar_url, musical_skills')
+    .in('id', ids);
+
+  if (error) throw error;
+
+  const byId = new Map((profiles as ScoreProfileRow[] | null ?? []).map((p) => [p.id, p]));
+
+  return scores.map((score) => {
+    const profile = byId.get(score.profile_id);
+    return {
+      ...score,
+      name: profile?.name ?? score.name,
+      email: profile?.email ?? score.email,
+      avatar_url: profile?.avatar_url ?? score.avatar_url ?? null,
+      musical_skills: profile?.musical_skills ?? score.musical_skills,
+    };
+  });
 }
 
 export const EVAL_CRITERIA = [
@@ -59,7 +97,9 @@ export function usePeerEvaluationScore(profileId: string) {
         .eq('profile_id', profileId)
         .maybeSingle();
       if (error) throw error;
-      return data as PeerEvaluationScore | null;
+      if (!data) return null;
+      const [enriched] = await enrichScoresWithMemberData([data as PeerEvaluationScore]);
+      return enriched ?? null;
     },
     enabled: !!profileId,
   });
@@ -75,7 +115,9 @@ export function useAllPeerEvaluationScores() {
         .select('*')
         .order('overall_score', { ascending: false });
       if (error) throw error;
-      return (data ?? []) as PeerEvaluationScore[];
+      const scores = (data ?? []) as PeerEvaluationScore[];
+      const enriched = await enrichScoresWithMemberData(scores);
+      return enriched.sort((a, b) => Number(b.overall_score) - Number(a.overall_score));
     },
   });
 }
@@ -83,20 +125,21 @@ export function useAllPeerEvaluationScores() {
 // Avaliação que o usuário logado já fez para um colega específico
 export function useMyEvaluationOf(evaluatedId: string) {
   const { user } = useAuth();
+  const { data: currentProfile } = useCurrentProfile();
   return useQuery({
-    queryKey: ['peer-eval-mine', evaluatedId],
+    queryKey: ['peer-eval-mine', evaluatedId, currentProfile?.id],
     queryFn: async () => {
-      if (!user) return null;
+      if (!user || !currentProfile?.id) return null;
       const { data, error } = await db
         .from('peer_evaluations')
         .select('*')
-        .eq('evaluator_id', user.id)
+        .eq('evaluator_id', currentProfile.id)
         .eq('evaluated_id', evaluatedId)
         .maybeSingle();
       if (error) throw error;
       return data as PeerEvaluation | null;
     },
-    enabled: !!user && !!evaluatedId,
+    enabled: !!user && !!currentProfile?.id && !!evaluatedId,
   });
 }
 
@@ -124,6 +167,7 @@ export function useMembersToEvaluate() {
 export function useUpsertPeerEvaluation() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
+  const { data: currentProfile } = useCurrentProfile();
   const { toast } = useToast();
 
   return useMutation({
@@ -137,10 +181,11 @@ export function useUpsertPeerEvaluation() {
       group_contribution: number;
     }) => {
       if (!user) throw new Error('Usuário não autenticado');
-      if (payload.evaluated_id === user.id) throw new Error('Você não pode avaliar a si mesmo');
+      if (!currentProfile?.id) throw new Error('Perfil do usuário não encontrado');
+      if (payload.evaluated_id === currentProfile.id) throw new Error('Você não pode avaliar a si mesmo');
 
       const record = {
-        evaluator_id: user.id,
+        evaluator_id: currentProfile.id,
         ...payload,
         updated_at: new Date().toISOString(),
       };

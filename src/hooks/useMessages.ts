@@ -69,15 +69,13 @@ export function useMarkMessageAsRead() {
 
   return useMutation({
     mutationFn: async (id: string) => {
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('messages')
         .update({ read_at: new Date().toISOString() })
-        .eq('id', id)
-        .select()
-        .single();
+        .eq('id', id);
       
       if (error) throw error;
-      return data;
+      return id;
     },
     onSuccess: () => {
       // Invalidar ambas as queries para atualizar lista e contador
