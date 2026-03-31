@@ -2,9 +2,11 @@ import { MainLayout } from '@/components/layout/MainLayout';
 import { useCurrentProfile } from '@/hooks/useProfiles';
 import { useSchedules } from '@/hooks/useSchedules';
 import { useMessages } from '@/hooks/useMessages';
-import { format } from 'date-fns';
+import { useTeams } from '@/hooks/useTeams';
+import { useChurches } from '@/hooks/useChurches';
+import { format, parseISO, addMinutes } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Calendar, MessageSquare, User, ArrowRight, Music, Clock, MapPin, Users, Award } from 'lucide-react';
+import { Calendar, MessageSquare, User, ArrowRight, Music, Clock, MapPin, Users, Tag, Building2, FileText, Guitar } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -16,6 +18,8 @@ export default function MemberDashboard() {
   const { data: profile, isLoading: profileLoading } = useCurrentProfile();
   const { data: schedules, isLoading: schedulesLoading } = useSchedules();
   const { data: messages, isLoading: messagesLoading } = useMessages();
+  const { data: teams, isLoading: teamsLoading } = useTeams();
+  const { data: churches } = useChurches();
 
   // Filtrar próximas escalas do membro
   const today = new Date();
@@ -25,17 +29,28 @@ export default function MemberDashboard() {
     schedule.schedule_assignments?.some(sa => sa.profile_id === profile?.id)
   ) || [];
 
+  const parseLocalDate = (dateStr: string) => {
+    const [year, month, day] = dateStr.split('T')[0].split('-').map(Number);
+    return new Date(year, month - 1, day);
+  };
+
   const upcomingSchedules = mySchedules
-    .filter(s => new Date(s.event_date) >= today)
-    .sort((a, b) => new Date(a.event_date).getTime() - new Date(b.event_date).getTime())
+    .filter(s => parseLocalDate(s.event_date) >= today)
+    .sort((a, b) => parseLocalDate(a.event_date).getTime() - parseLocalDate(b.event_date).getTime())
     .slice(0, 5);
+
+  // Equipes do membro
+  const myTeams = teams?.filter(team =>
+    team.team_members?.some(tm => tm.profile_id === profile?.id)
+  ) || [];
 
   // Mensagens não lidas
   const unreadMessages = messages?.filter(m => !m.read_at) || [];
 
   const formatDate = (dateStr: string) => {
     try {
-      return format(new Date(dateStr), "dd/MM/yyyy", { locale: ptBR });
+      const [year, month, day] = dateStr.split('T')[0].split('-').map(Number);
+      return format(new Date(year, month - 1, day), "d 'de' MMM yyyy", { locale: ptBR });
     } catch {
       return dateStr;
     }
@@ -113,21 +128,21 @@ export default function MemberDashboard() {
             </CardContent>
           </Card>
 
-          {/* Habilidades Card */}
+          {/* Equipes Card */}
           <Card className="overflow-hidden border-l-4 border-l-purple-500 hover:shadow-lg transition-shadow">
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-sm font-semibold">
-                <Award className="w-4 h-4 text-purple-500" />
-                Habilidades
+                <Users className="w-4 h-4 text-purple-500" />
+                Equipes
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {profileLoading ? (
+              {teamsLoading ? (
                 <Skeleton className="h-4 w-32" />
               ) : (
                 <>
-                  <p className="font-bold text-lg text-purple-600">{profile?.musical_skills?.length || 0}</p>
-                  <p className="text-xs text-muted-foreground mt-1">instrumentos</p>
+                  <p className="font-bold text-lg text-purple-600">{myTeams.length}</p>
+                  <p className="text-xs text-muted-foreground mt-1">equipes ativas</p>
                 </>
               )}
             </CardContent>
@@ -195,6 +210,7 @@ export default function MemberDashboard() {
                               )}
                             </div>
                           </div>
+                          {/* Linha 1: data, hora, local */}
                           <div className="flex flex-wrap gap-3 text-sm text-muted-foreground pl-11">
                             <div className="flex items-center gap-1">
                               <Calendar className="w-4 h-4" />
@@ -216,6 +232,60 @@ export default function MemberDashboard() {
                               </div>
                             )}
                           </div>
+
+                          {/* Linha 2: detalhes adicionais da agenda */}
+                          {(schedule.ministry?.name || schedule.church?.name || schedule.event_type || schedule.schedule_type || assignment?.role_assigned) && (
+                            <div className="mt-3 pl-11 border-t pt-3 grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
+                              {schedule.ministry?.name && (
+                                <div className="flex items-center gap-2 text-muted-foreground">
+                                  <Music className="w-3.5 h-3.5 flex-shrink-0 text-primary/70" />
+                                  <span className="font-medium text-foreground/70">Ministério:</span>
+                                  <span>{schedule.ministry.name}</span>
+                                </div>
+                              )}
+                              {assignment?.team?.name && (
+                                <div className="flex items-center gap-2 text-muted-foreground">
+                                  <Users className="w-3.5 h-3.5 flex-shrink-0 text-blue-500/70" />
+                                  <span className="font-medium text-foreground/70">Equipe:</span>
+                                  <span>{assignment.team.name}</span>
+                                </div>
+                              )}
+                              {assignment?.role_assigned && (
+                                <div className="flex items-center gap-2 text-muted-foreground">
+                                  <Guitar className="w-3.5 h-3.5 flex-shrink-0 text-purple-500/70" />
+                                  <span className="font-medium text-foreground/70">Instrumento/Função:</span>
+                                  <span>{assignment.role_assigned}</span>
+                                </div>
+                              )}
+                              {(schedule.event_type || schedule.schedule_type) && (
+                                <div className="flex items-center gap-2 text-muted-foreground">
+                                  <Tag className="w-3.5 h-3.5 flex-shrink-0 text-orange-500/70" />
+                                  <span className="font-medium text-foreground/70">Tipo:</span>
+                                  <span>{schedule.event_type || schedule.schedule_type}</span>
+                                </div>
+                              )}
+                              {schedule.church?.name && (
+                                <div className="flex items-center gap-2 text-muted-foreground">
+                                  <Building2 className="w-3.5 h-3.5 flex-shrink-0 text-green-500/70" />
+                                  <span className="font-medium text-foreground/70">Igreja:</span>
+                                  <span>{schedule.church.name}</span>
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Notas e observações */}
+                          {schedule.notes && (
+                            <div className="mt-3 pl-11">
+                              <div className="flex items-start gap-2 bg-muted/40 rounded-md p-2.5 text-sm">
+                                <FileText className="w-3.5 h-3.5 flex-shrink-0 text-muted-foreground mt-0.5" />
+                                <div>
+                                  <span className="font-medium text-foreground/70 block mb-0.5">Observações:</span>
+                                  <span className="text-muted-foreground">{schedule.notes}</span>
+                                </div>
+                              </div>
+                            </div>
+                          )}
                         </div>
                       );
                     })}
@@ -255,20 +325,62 @@ export default function MemberDashboard() {
                         <p className="text-sm">{profile.phone}</p>
                       </div>
                     )}
-                    {profile.musical_skills && profile.musical_skills.length > 0 && (
-                      <div>
-                        <p className="text-xs text-muted-foreground font-semibold mb-2">INSTRUMENTOS</p>
-                        <div className="flex flex-wrap gap-2">
-                          {profile.musical_skills.map(skill => (
-                            <Badge key={skill} variant="outline" className="bg-primary/5">
-                              🎵 {skill}
-                            </Badge>
-                          ))}
-                        </div>
-                      </div>
-                    )}
                   </>
                 ) : null}
+              </CardContent>
+            </Card>
+
+            {/* Minhas Equipes */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Users className="w-4 h-4 text-purple-500" />
+                  Minhas Equipes
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {teamsLoading ? (
+                  <div className="space-y-2">
+                    <Skeleton className="h-16 w-full" />
+                    <Skeleton className="h-16 w-full" />
+                  </div>
+                ) : myTeams.length > 0 ? (
+                  myTeams.map(team => {
+                    const memberRecord = team.team_members?.find(tm => tm.profile_id === profile?.id);
+                    const church = churches?.find(c => c.id === team.ministry?.church_id);
+                    return (
+                      <div key={team.id} className="border rounded-md p-3 space-y-1.5 bg-muted/20">
+                        <div className="flex items-center gap-2">
+                          <Users className="w-3.5 h-3.5 text-purple-500 flex-shrink-0" />
+                          <span className="font-semibold text-sm">{team.name}</span>
+                        </div>
+                        {team.ministry?.name && (
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground pl-0.5">
+                            <Music className="w-3 h-3 text-primary/70 flex-shrink-0" />
+                            <span className="font-medium text-foreground/70">Ministério:</span>
+                            <span>{team.ministry.name}</span>
+                          </div>
+                        )}
+                        {memberRecord?.role_in_team && (
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground pl-0.5">
+                            <Guitar className="w-3 h-3 text-orange-500/80 flex-shrink-0" />
+                            <span className="font-medium text-foreground/70">Instrumento:</span>
+                            <span>{memberRecord.role_in_team}</span>
+                          </div>
+                        )}
+                        {church?.name && (
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground pl-0.5">
+                            <Building2 className="w-3 h-3 text-green-500/80 flex-shrink-0" />
+                            <span className="font-medium text-foreground/70">Local:</span>
+                            <span>{church.name}</span>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })
+                ) : (
+                  <p className="text-sm text-muted-foreground">Nenhuma equipe atribuída</p>
+                )}
               </CardContent>
             </Card>
 

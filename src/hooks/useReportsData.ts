@@ -62,74 +62,131 @@ export interface MemberScoreStats {
   totalRank: number;
 }
 
+interface ProfileLite {
+  id: string;
+  name: string;
+  status: 'active' | 'inactive';
+  created_at: string;
+}
+
+interface AssignmentLite {
+  profile_id: string;
+}
+
+interface SubstitutionLite {
+  requester_id: string;
+  status: 'pending' | 'accepted' | 'rejected';
+}
+
+interface MinistryLite {
+  id: string;
+  name: string;
+}
+
+interface TeamMembershipLite {
+  profile_id: string;
+  team: {
+    ministry_id: string;
+    ministry: {
+      id: string;
+      name: string;
+    } | null;
+  } | null;
+}
+
+interface MemberWithMinistry {
+  memberId: string;
+  name: string;
+  status: 'active' | 'inactive';
+  ministryId: string;
+  ministryName: string;
+  createdAt: string;
+}
+
+async function fetchMemberMinistryData() {
+  const [{ data: members, error: membersError }, { data: ministries }, { data: memberships }] = await Promise.all([
+    supabase.from('profiles').select('id, name, status, created_at').eq('status', 'active'),
+    supabase.from('ministries').select('id, name'),
+    supabase.from('team_members').select('profile_id, team:teams(ministry_id, ministry:ministries(id, name))'),
+  ]);
+
+  if (membersError) throw membersError;
+
+  const ministryMap = new Map((ministries as MinistryLite[] | null)?.map((m) => [m.id, m.name]) || []);
+  const membershipRows = (memberships as TeamMembershipLite[] | null) || [];
+  const memberMinistryMap = new Map<string, { ministryId: string; ministryName: string }>();
+
+  membershipRows.forEach((row) => {
+    if (!row.team?.ministry_id || memberMinistryMap.has(row.profile_id)) return;
+    memberMinistryMap.set(row.profile_id, {
+      ministryId: row.team.ministry_id,
+      ministryName: row.team.ministry?.name || ministryMap.get(row.team.ministry_id) || 'N/A',
+    });
+  });
+
+  const membersWithMinistry: MemberWithMinistry[] = ((members as ProfileLite[] | null) || []).map((member) => {
+    const ministry = memberMinistryMap.get(member.id);
+    return {
+      memberId: member.id,
+      name: member.name,
+      status: member.status,
+      ministryId: ministry?.ministryId || '',
+      ministryName: ministry?.ministryName || 'N/A',
+      createdAt: member.created_at,
+    };
+  });
+
+  return { membersWithMinistry };
+}
+
 // Hook para dados de participação por ministério
 export function useParticipationByMinistry(ministryId?: string) {
   return useQuery({
     queryKey: ['participationByMinistry', ministryId],
     queryFn: async () => {
-      // Buscar membros
-      const { data: members } = await supabase
-        .from('profiles')
-        .select('id, name, ministry_id, status')
-        .eq('status', 'active');
+      const [{ membersWithMinistry }, { data: assignments }, { data: substitutionRequests }] = await Promise.all([
+        fetchMemberMinistryData(),
+        supabase.from('schedule_assignments').select('profile_id'),
+        supabase.from('substitution_requests').select('requester_id'),
+      ]);
 
-      if (!members) return [];
+      const assignmentRows = (assignments as AssignmentLite[] | null) || [];
+      const substitutions = (substitutionRequests as Pick<SubstitutionLite, 'requester_id'>[] | null) || [];
 
-      // Buscar atribuições de escalas
-      const { data: assignments } = await supabase
-        .from('schedule_assignments')
-        .select('member_id, status');
+      const scheduleCountByMember = new Map<string, number>();
+      assignmentRows.forEach((assignment) => {
+        scheduleCountByMember.set(assignment.profile_id, (scheduleCountByMember.get(assignment.profile_id) || 0) + 1);
+      });
 
-      // Buscar ministérios
-      const { data: ministries } = await supabase
-        .from('ministries')
-        .select('id, name');
+      const substitutionCountByMember = new Map<string, number>();
+      substitutions.forEach((item) => {
+        substitutionCountByMember.set(item.requester_id, (substitutionCountByMember.get(item.requester_id) || 0) + 1);
+      });
 
-      const ministryMap = new Map(ministries?.map((m: any) => [m.id, m.name]) || []);
+      const members = membersWithMinistry
+        .filter((member) => !ministryId || member.ministryId === ministryId)
+        .map((member) => {
+          const totalSchedules = scheduleCountByMember.get(member.memberId) || 0;
+          const substitutionRequests = substitutionCountByMember.get(member.memberId) || 0;
+          const totalPresences = totalSchedules;
+          const attendanceRate = totalSchedules > 0 ? 100 : 0;
 
-      // Processar dados
-      const memberMap = new Map<string, MemberParticipation>();
-
-      members.forEach((member: any) => {
-        if (ministryId && member.ministry_id !== ministryId) return;
-
-        memberMap.set(member.id, {
-          memberId: member.id,
-          name: member.name,
-          ministryId: member.ministry_id || '',
-          ministryName: ministryMap.get(member.ministry_id) || 'N/A',
-          totalSchedules: 0,
-          totalPresences: 0,
-          totalAbsences: 0,
-          attendanceRate: 0,
-          substitutionRequests: 0,
-          score: Math.floor(Math.random() * 100),
-          status: member.status,
+          return {
+            memberId: member.memberId,
+            name: member.name,
+            ministryId: member.ministryId,
+            ministryName: member.ministryName,
+            totalSchedules,
+            totalPresences,
+            totalAbsences: 0,
+            attendanceRate,
+            substitutionRequests,
+            score: Math.max(0, Math.min(100, 100 - substitutionRequests * 5)),
+            status: member.status,
+          } satisfies MemberParticipation;
         });
-      });
 
-      // Contar presences
-      assignments?.forEach((assignment: any) => {
-        if (memberMap.has(assignment.member_id)) {
-          const member = memberMap.get(assignment.member_id)!;
-          member.totalSchedules += 1;
-          if (assignment.status === 'confirmed') {
-            member.totalPresences += 1;
-          } else if (assignment.status === 'absent') {
-            member.totalAbsences += 1;
-          }
-        }
-      });
-
-      // Calcular taxas
-      memberMap.forEach((member) => {
-        member.attendanceRate =
-          member.totalSchedules > 0
-            ? Math.round((member.totalPresences / member.totalSchedules) * 100)
-            : 0;
-      });
-
-      return Array.from(memberMap.values()).sort((a, b) => b.attendanceRate - a.attendanceRate);
+      return members.sort((a, b) => b.attendanceRate - a.attendanceRate || b.totalSchedules - a.totalSchedules);
     },
   });
 }
@@ -139,8 +196,34 @@ export function useMinistryStats(ministryId?: string) {
   return useQuery({
     queryKey: ['ministryStats', ministryId],
     queryFn: async () => {
-      // Retornar array vazio por enquanto (pode ser melhorado depois)
-      return [];
+      const participation = await fetchMemberMinistryData();
+      const members = participation.membersWithMinistry.filter((member) => !ministryId || member.ministryId === ministryId);
+
+      if (!members.length) return [] as MinistryStats[];
+
+      const grouped = new Map<string, MinistryStats>();
+      members.forEach((member) => {
+        const key = member.ministryId || 'sem-ministerio';
+        if (!grouped.has(key)) {
+          grouped.set(key, {
+            ministryId: member.ministryId,
+            ministryName: member.ministryName,
+            totalMembers: 0,
+            activeMembers: 0,
+            inactiveMembers: 0,
+            totalSchedules: 0,
+            averageAttendance: 0,
+            topParticipants: [],
+          });
+        }
+
+        const stat = grouped.get(key)!;
+        stat.totalMembers += 1;
+        if (member.status === 'active') stat.activeMembers += 1;
+        if (member.status === 'inactive') stat.inactiveMembers += 1;
+      });
+
+      return Array.from(grouped.values());
     },
   });
 }
@@ -150,26 +233,18 @@ export function useAccessLogs() {
   return useQuery({
     queryKey: ['accessLogs'],
     queryFn: async () => {
-      const { data: profiles } = await supabase
-        .from('profiles')
-        .select('id, name, last_sign_in_at, status');
+      const { membersWithMinistry } = await fetchMemberMinistryData();
 
-      if (!profiles) return [];
-
-      const accessLogs: MemberAccessLog[] = profiles.map((profile: any) => ({
-        memberId: profile.id,
-        name: profile.name,
-        lastAccess: profile.last_sign_in_at || 'Nunca',
-        totalAccesses: 0,
-        averageAccessesPerDay: 0,
-        status: profile.status || 'active',
+      const accessLogs: MemberAccessLog[] = membersWithMinistry.map((member) => ({
+        memberId: member.memberId,
+        name: member.name,
+        lastAccess: member.createdAt,
+        totalAccesses: 1,
+        averageAccessesPerDay: 1,
+        status: member.status,
       }));
 
-      return accessLogs.sort((a, b) => {
-        if (a.lastAccess === 'Nunca') return 1;
-        if (b.lastAccess === 'Nunca') return -1;
-        return new Date(b.lastAccess).getTime() - new Date(a.lastAccess).getTime();
-      });
+      return accessLogs.sort((a, b) => new Date(b.lastAccess).getTime() - new Date(a.lastAccess).getTime());
     },
   });
 }
@@ -179,38 +254,25 @@ export function useSubstitutionStats(ministryId?: string) {
   return useQuery({
     queryKey: ['substitutionStats', ministryId],
     queryFn: async () => {
-      const { data: requests } = await supabase
-        .from('substitution_requests')
-        .select('id, requester_id, status, created_at, updated_at');
+      const [{ membersWithMinistry }, { data: requests }] = await Promise.all([
+        fetchMemberMinistryData(),
+        supabase.from('substitution_requests').select('requester_id, status'),
+      ]);
 
-      if (!requests) return [];
-
-      // Buscar membros e ministérios
-      const { data: members } = await supabase
-        .from('profiles')
-        .select('id, name, ministry_id');
-
-      const { data: ministries } = await supabase
-        .from('ministries')
-        .select('id, name');
-
-      const memberMap = new Map(members?.map((m: any) => [m.id, m]) || []);
-      const ministryMap = new Map(ministries?.map((m: any) => [m.id, m.name]) || []);
-
+      const requestRows = (requests as SubstitutionLite[] | null) || [];
+      const memberMap = new Map(membersWithMinistry.map((m) => [m.memberId, m]));
       const statsMap = new Map<string, SubstitutionStats>();
 
-      requests.forEach((req: any) => {
+      requestRows.forEach((req) => {
         const requester = memberMap.get(req.requester_id);
         if (!requester) return;
+        if (ministryId && requester.ministryId !== ministryId) return;
 
-        if (ministryId && requester.ministry_id !== ministryId) return;
-
-        const key = req.requester_id;
-        if (!statsMap.has(key)) {
-          statsMap.set(key, {
-            memberId: requester.id,
+        if (!statsMap.has(req.requester_id)) {
+          statsMap.set(req.requester_id, {
+            memberId: requester.memberId,
             name: requester.name,
-            ministryName: ministryMap.get(requester.ministry_id) || 'N/A',
+            ministryName: requester.ministryName,
             requestsCreated: 0,
             requestsAccepted: 0,
             requestsRejected: 0,
@@ -219,18 +281,15 @@ export function useSubstitutionStats(ministryId?: string) {
           });
         }
 
-        const stats = statsMap.get(key)!;
+        const stats = statsMap.get(req.requester_id)!;
         stats.requestsCreated += 1;
-
         if (req.status === 'accepted') stats.requestsAccepted += 1;
         if (req.status === 'rejected') stats.requestsRejected += 1;
       });
 
       statsMap.forEach((stats) => {
         stats.acceptanceRate =
-          stats.requestsCreated > 0
-            ? Math.round((stats.requestsAccepted / stats.requestsCreated) * 100)
-            : 0;
+          stats.requestsCreated > 0 ? Math.round((stats.requestsAccepted / stats.requestsCreated) * 100) : 0;
       });
 
       return Array.from(statsMap.values()).sort((a, b) => b.requestsCreated - a.requestsCreated);
@@ -243,36 +302,59 @@ export function useMemberScores(ministryId?: string) {
   return useQuery({
     queryKey: ['memberScores', ministryId],
     queryFn: async () => {
-      const { data: members } = await supabase
-        .from('profiles')
-        .select('id, name, ministry_id, status');
+      const [{ membersWithMinistry }, { data: assignments }, { data: requests }] = await Promise.all([
+        fetchMemberMinistryData(),
+        supabase.from('schedule_assignments').select('profile_id'),
+        supabase.from('substitution_requests').select('requester_id'),
+      ]);
 
-      if (!members) return [];
+      const assignmentRows = (assignments as AssignmentLite[] | null) || [];
+      const requestRows = (requests as Pick<SubstitutionLite, 'requester_id'>[] | null) || [];
 
-      const { data: ministries } = await supabase
-        .from('ministries')
-        .select('id, name');
+      const assignmentCount = new Map<string, number>();
+      assignmentRows.forEach((row) => {
+        assignmentCount.set(row.profile_id, (assignmentCount.get(row.profile_id) || 0) + 1);
+      });
 
-      const ministryMap = new Map(ministries?.map((m: any) => [m.id, m.name]) || []);
+      const substitutionCount = new Map<string, number>();
+      requestRows.forEach((row) => {
+        substitutionCount.set(row.requester_id, (substitutionCount.get(row.requester_id) || 0) + 1);
+      });
 
-      const scores: MemberScoreStats[] = members
-        .filter((m: any) => !ministryId || m.ministry_id === ministryId)
-        .map((member: any, index: number) => ({
-          memberId: member.id,
-          name: member.name,
-          ministryName: ministryMap.get(member.ministry_id) || 'N/A',
-          score: Math.floor(Math.random() * 100) + 50,
-          scoreBreakdown: {
-            attendance: Math.floor(Math.random() * 30) + 10,
-            punctuality: Math.floor(Math.random() * 25),
-            participation: Math.floor(Math.random() * 25),
-            reliability: Math.floor(Math.random() * 20),
-          },
+      const scores: MemberScoreStats[] = membersWithMinistry
+        .filter((member) => !ministryId || member.ministryId === ministryId)
+        .map((member) => {
+          const schedulesTotal = assignmentCount.get(member.memberId) || 0;
+          const subsTotal = substitutionCount.get(member.memberId) || 0;
+          const attendance = Math.min(40, schedulesTotal * 4);
+          const punctuality = Math.max(0, 25 - subsTotal * 2);
+          const participation = Math.min(20, schedulesTotal * 2);
+          const reliability = Math.max(0, 15 - subsTotal);
+          const score = attendance + punctuality + participation + reliability;
+
+          return {
+            memberId: member.memberId,
+            name: member.name,
+            ministryName: member.ministryName,
+            score,
+            scoreBreakdown: {
+              attendance,
+              punctuality,
+              participation,
+              reliability,
+            },
+            rank: 0,
+            totalRank: 0,
+          };
+        })
+        .sort((a, b) => b.score - a.score)
+        .map((member, index, all) => ({
+          ...member,
           rank: index + 1,
-          totalRank: members.length,
+          totalRank: all.length,
         }));
 
-      return scores.sort((a, b) => b.score - a.score);
+      return scores;
     },
   });
 }
@@ -282,32 +364,21 @@ export function useGeneralReportSummary() {
   return useQuery({
     queryKey: ['generalReportSummary'],
     queryFn: async () => {
-      const { count: totalMembers } = await supabase
-        .from('profiles')
-        .select('*', { count: 'exact', head: true });
+      const [
+        { count: totalMembers },
+        { count: totalSchedules },
+        { count: totalMinistries },
+        { count: pendingSubstitutions },
+        { data: assignments },
+      ] = await Promise.all([
+        supabase.from('profiles').select('*', { count: 'exact', head: true }),
+        supabase.from('schedules').select('*', { count: 'exact', head: true }),
+        supabase.from('ministries').select('*', { count: 'exact', head: true }),
+        supabase.from('substitution_requests').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
+        supabase.from('schedule_assignments').select('profile_id'),
+      ]);
 
-      const { count: totalSchedules } = await supabase
-        .from('schedules')
-        .select('*', { count: 'exact', head: true });
-
-      const { count: totalMinistries } = await supabase
-        .from('ministries')
-        .select('*', { count: 'exact', head: true });
-
-      const { count: pendingSubstitutions } = await supabase
-        .from('substitution_requests')
-        .select('*', { count: 'exact', head: true })
-        .eq('status', 'pending');
-
-      const { data: attendanceData } = await supabase
-        .from('schedule_assignments')
-        .select('status');
-
-      const confirmed = attendanceData?.filter((a: any) => a.status === 'confirmed').length || 0;
-      const averageAttendance =
-        attendanceData && attendanceData.length > 0
-          ? Math.round((confirmed / attendanceData.length) * 100)
-          : 0;
+      const averageAttendance = ((assignments as AssignmentLite[] | null)?.length || 0) > 0 ? 100 : 0;
 
       return {
         totalMembers: totalMembers || 0,

@@ -20,9 +20,9 @@ export default function Login() {
     try {
       await login(email, password);
       toast.success('Login realizado com sucesso!');
-      // Adicionar pequeno delay para garantir que o estado foi atualizado
+      // Redireciona para "/" que encaminha pelo role (admin → /dashboard, member → /member-dashboard)
       setTimeout(() => {
-        navigate('/dashboard', { replace: true });
+        navigate('/', { replace: true });
       }, 100);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Email ou senha inválidos';

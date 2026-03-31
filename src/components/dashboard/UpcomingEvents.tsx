@@ -9,10 +9,15 @@ import { ptBR } from 'date-fns/locale';
 export function UpcomingEvents() {
   const { data: schedules, isLoading: schedulesLoading } = useSchedules();
 
+  const parseLocalDate = (dateStr: string) => {
+    const [year, month, day] = dateStr.split('T')[0].split('-').map(Number);
+    return new Date(year, month - 1, day);
+  };
+
   // Filtrar apenas as escalas futuras (todos os cultos)
   const userUpcomingSchedules = schedules
     ?.filter(schedule => {
-      const eventDate = new Date(schedule.event_date);
+      const eventDate = parseLocalDate(schedule.event_date);
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       
@@ -25,7 +30,7 @@ export function UpcomingEvents() {
 
   const formatDate = (dateStr: string) => {
     try {
-      const date = new Date(dateStr);
+      const date = parseLocalDate(dateStr);
       return {
         day: format(date, 'd', { locale: ptBR }),
         month: format(date, 'MMM', { locale: ptBR })

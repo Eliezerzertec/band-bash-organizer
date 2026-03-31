@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { AnimatedIcon } from '@/components/ui/animated-icon';
 import { Award, TrendingUp, TrendingDown, Loader, Lock } from 'lucide-react';
-import { useMemberScores, useCurrentMemberScore } from '@/hooks/useMemberScores';
+import { useMemberScores, useCurrentMemberScore, type MemberScore as HookMemberScore } from '@/hooks/useMemberScores';
 import { useAuth } from '@/contexts/AuthContext';
 import { ScoreGauge } from '@/components/ui/ScoreGauge';
 
@@ -15,6 +15,8 @@ interface MemberScore {
   agenda_block_score: number;
   trend: 'up' | 'down' | 'stable';
 }
+
+type RawMemberScore = Pick<HookMemberScore, 'id' | 'name' | 'score' | 'frequency_score' | 'commitment_score' | 'substitution_score' | 'agenda_block_score'>;
 
 function getScoreColor(score: number): string {
   if (score >= 800) return 'hsl(150, 80%, 50%)'; // Verde
@@ -38,7 +40,7 @@ export function MemberEvaluationsChart() {
   const memberScoresData = isAdmin ? allScoresData : (currentScoreData ? [currentScoreData] : []);
 
   // Transformar dados do banco em formato para o gráfico
-  const formattedScores: MemberScore[] = (memberScoresData || []).map((score: any) => ({
+  const formattedScores: MemberScore[] = (memberScoresData || []).map((score: RawMemberScore) => ({
     id: score.id,
     name: score.name || 'Membro Desconhecido',
     score: score.score,

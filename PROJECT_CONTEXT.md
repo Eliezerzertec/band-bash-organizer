@@ -235,11 +235,13 @@ Tipos de instrumentos/funções:
 - **admin**: Acesso total (pode gerenciar igrejas, ministérios, membros, escalas)
 - **member**: Acesso restrito (visualiza sua informação, participa de eventos)
 
-### Mock Users (para desenvolvimento)
+### Credenciais de referência (validar no backend atual)
 ```
-admin@louvor.com / admin123 → Pastor João Silva (admin)
-membro@louvor.com / membro123 → Maria Santos (member)
+admin@louvor.com / admin123 → exemplo documentado de admin
+membro@louvor.com / membro123 → exemplo documentado de member
 ```
+
+Observação: em 31/03/2026 essas credenciais documentadas não autenticaram no projeto conectado ao Supabase atual e não devem ser tratadas como contas garantidas de homologação.
 
 ---
 

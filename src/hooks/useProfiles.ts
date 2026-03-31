@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import type { PostgrestError } from '@supabase/supabase-js';
 
 export interface Profile {
   id: string;
@@ -105,6 +106,7 @@ export function useCreateMember() {
       phone?: string | null;
       status?: 'active' | 'inactive';
       musical_skills?: string[];
+      ministry_id?: string;
     }) => {
       try {
         console.log('Criando membro com dados:', payload);
@@ -126,7 +128,22 @@ export function useCreateMember() {
                 musical_skills: payload.musical_skills || [],
               })
               .eq('user_id', data.user_id);
-            
+
+            // Vincular membro à igreja via user_roles
+            if (payload.ministry_id) {
+              const { data: ministry } = await supabase
+                .from('ministries')
+                .select('church_id')
+                .eq('id', payload.ministry_id)
+                .maybeSingle();
+              if (ministry?.church_id) {
+                await supabase.from('user_roles').upsert(
+                  { user_id: data.user_id, church_id: ministry.church_id, role: 'member' },
+                  { onConflict: 'user_id,church_id' }
+                );
+              }
+            }
+
             if (!updateError) {
               return { user_id: data.user_id };
             }
@@ -191,22 +208,38 @@ export function useCreateMember() {
           }, { onConflict: 'user_id' });
 
         if (profileError) {
+          const profileErr = profileError as PostgrestError;
           console.error('Profile error completo:', {
             message: profileError.message,
-            code: (profileError as any).code,
-            details: (profileError as any).details,
-            hint: (profileError as any).hint,
+            code: profileErr.code,
+            details: profileErr.details,
+            hint: profileErr.hint,
           });
           
           // Mensagem de erro mais específica
           let errorMsg = `Erro ao criar perfil: ${profileError.message}`;
-          if ((profileError as any).code === '42501') {
+          if (profileErr.code === '42501') {
             errorMsg = 'Erro de permissão: RLS policy não permite INSERT. Execute FIX_PROFILES_RLS_NOW.sql';
-          } else if ((profileError as any).code === '23505') {
+          } else if (profileErr.code === '23505') {
             errorMsg = 'Erro: Email já está registrado';
           }
           
           throw new Error(errorMsg);
+        }
+
+        // Vincular membro à igreja via user_roles
+        if (payload.ministry_id) {
+          const { data: ministry } = await supabase
+            .from('ministries')
+            .select('church_id')
+            .eq('id', payload.ministry_id)
+            .maybeSingle();
+          if (ministry?.church_id) {
+            await supabase.from('user_roles').upsert(
+              { user_id: userId, church_id: ministry.church_id, role: 'member' },
+              { onConflict: 'user_id,church_id' }
+            );
+          }
         }
 
         console.log('Perfil criado com sucesso:', profileData);

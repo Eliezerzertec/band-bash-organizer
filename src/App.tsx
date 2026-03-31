@@ -16,6 +16,7 @@ import Members from "./pages/Members";
 import Teams from "./pages/Teams";
 import TeamForm from "./pages/TeamForm";
 import Schedules from "./pages/Schedules";
+import MySchedules from "./pages/MySchedules";
 import Substitutions from "./pages/Substitutions";
 import Messages from "./pages/Messages";
 import Reports from "./pages/Reports";
@@ -42,7 +43,7 @@ function ProtectedRoute({ children, adminOnly = false }: { children: React.React
   }
 
   if (adminOnly && !hasRole('admin')) {
-    return <Navigate to="/schedules" replace />;
+    return <Navigate to="/member-dashboard" replace />;
   }
 
   return <>{children}</>;
@@ -50,7 +51,7 @@ function ProtectedRoute({ children, adminOnly = false }: { children: React.React
 
 // Public Route Component (redirects to dashboard if already logged in)
 function PublicRoute({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, hasRole } = useAuth();
 
   if (isLoading) {
     return (
@@ -61,7 +62,7 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
   }
 
   if (isAuthenticated) {
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to={hasRole('admin') ? '/dashboard' : '/member-dashboard'} replace />;
   }
 
   return <>{children}</>;
@@ -135,8 +136,8 @@ function AppRoutes() {
       } />
       
       <Route path="/schedules" element={
-        <ProtectedRoute adminOnly>
-          <Schedules />
+        <ProtectedRoute>
+          {isAdmin ? <Schedules /> : <MySchedules />}
         </ProtectedRoute>
       } />
       

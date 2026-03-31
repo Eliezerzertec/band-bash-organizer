@@ -1,5 +1,5 @@
 import { MessageSquare, Search, User, Settings, Menu, Loader2 } from 'lucide-react';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCurrentProfile } from '@/hooks/useProfiles';
 import { useMessages } from '@/hooks/useMessages';
@@ -38,7 +38,10 @@ export function Header({ title, subtitle, onMenuClick }: HeaderProps) {
   const notifiedMessageIds = useRef<Set<string>>(new Set());
 
   // Contar mensagens não lidas
-  const unreadMessages = messages?.filter(m => !m.read_at) || [];
+  const unreadMessages = useMemo(
+    () => messages?.filter((m) => !m.read_at) || [],
+    [messages]
+  );
   const unreadCount = unreadMessages.length;
 
   // Solicitar permissão de notificações ao carregar
@@ -48,7 +51,7 @@ export function Header({ title, subtitle, onMenuClick }: HeaderProps) {
 
   // Monitorar novas mensagens não lidas
   useEffect(() => {
-    if (!messages || messages.length === 0) return;
+    if (unreadMessages.length === 0) return;
 
     unreadMessages.forEach(message => {
       // Se a mensagem é nova (não foi notificada ainda) e é não lida

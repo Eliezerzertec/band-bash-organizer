@@ -22,8 +22,10 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { useGeneralReportSummary, useParticipationByMinistry, useMemberScores } from '@/hooks/useReportsData';
+import { useGeneralReportSummary, useParticipationByMinistry, useMemberScores, type MemberParticipation } from '@/hooks/useReportsData';
 import { useMinistries } from '@/hooks/useMinistries';
+
+type MembersBySkillMap = Record<string, MemberParticipation[]>;
 
 export default function Reports() {
   const navigate = useNavigate();
@@ -40,11 +42,11 @@ export default function Reports() {
   const { data: ministries } = useMinistries();
 
   // Dados por habilidade
-  const membersBySkill = participation?.reduce((acc: any, member) => {
+  const membersBySkill: MembersBySkillMap = participation?.reduce((acc, member) => {
     if (!acc['Geral']) acc['Geral'] = [];
     acc['Geral'].push(member);
     return acc;
-  }, {}) || {};
+  }, {} as MembersBySkillMap) || {};
 
   return (
     <MainLayout 

@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
+import type { Database } from '@/integrations/supabase/types';
 
 export interface Schedule {
   id: string;
@@ -41,6 +42,26 @@ export interface Schedule {
     };
   }[];
 }
+
+export interface SchedulePayload {
+  title?: string;
+  event_name?: string;
+  description?: string | null;
+  event_date: string;
+  start_time?: string | null;
+  end_time?: string | null;
+  location?: string | null;
+  church_id: string;
+  ministry_id?: string | null;
+  schedule_type?: string;
+}
+
+export interface ScheduleUpdatePayload extends Partial<SchedulePayload> {
+  id: string;
+}
+
+type ScheduleInsert = Database['public']['Tables']['schedules']['Insert'];
+type ScheduleUpdate = Database['public']['Tables']['schedules']['Update'];
 
 export const useSchedules = () => {
   return useQuery({
@@ -92,12 +113,12 @@ export const useCreateSchedule = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (newSchedule: any) => {
-      const insertData: any = {
+    mutationFn: async (newSchedule: SchedulePayload) => {
+      const insertData: ScheduleInsert = {
         title: newSchedule.title || newSchedule.event_name,
         description: newSchedule.description,
         event_date: newSchedule.event_date,
-        start_time: newSchedule.start_time,
+        start_time: newSchedule.start_time || '00:00',
         end_time: newSchedule.end_time,
         location: newSchedule.location,
         church_id: newSchedule.church_id,
@@ -111,7 +132,7 @@ export const useCreateSchedule = () => {
 
       const { data, error } = await supabase
         .from('schedules')
-        .insert([insertData])
+        .insert(insertData)
         .select()
         .single();
 
@@ -128,8 +149,8 @@ export const useUpdateSchedule = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ id, ...updates }: any) => {
-      const updateData: any = {
+    mutationFn: async ({ id, ...updates }: ScheduleUpdatePayload) => {
+      const updateData: ScheduleUpdate = {
         title: updates.title || updates.event_name,
         description: updates.description,
         event_date: updates.event_date,

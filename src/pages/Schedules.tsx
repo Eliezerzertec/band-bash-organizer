@@ -29,12 +29,16 @@ import { ptBR } from 'date-fns/locale';
 import { ScheduleFormDialog } from '@/components/forms/ScheduleFormDialog';
 import { toast } from 'sonner';
 
+interface AssignmentToRemove {
+  id: string;
+}
+
 export default function Schedules() {
   const [searchTerm, setSearchTerm] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedSchedule, setSelectedSchedule] = useState<Schedule | null>(null);
   const [removeDialogOpen, setRemoveDialogOpen] = useState(false);
-  const [assignmentToRemove, setAssignmentToRemove] = useState<any>(null);
+  const [assignmentToRemove, setAssignmentToRemove] = useState<AssignmentToRemove | null>(null);
   const { data: schedules = [], isLoading, error } = useSchedules();
   const { data: profile } = useCurrentProfile();
   const { hasRole } = useAuth();
@@ -66,7 +70,7 @@ export default function Schedules() {
     setDialogOpen(true);
   };
 
-  const handleRemoveFromSchedule = (assignment: any) => {
+  const handleRemoveFromSchedule = (assignment: AssignmentToRemove) => {
     setAssignmentToRemove(assignment);
     setRemoveDialogOpen(true);
   };
@@ -88,7 +92,8 @@ export default function Schedules() {
 
   const formatDate = (dateStr: string) => {
     try {
-      return format(new Date(dateStr), "d 'de' MMM yyyy", { locale: ptBR });
+      const [year, month, day] = dateStr.split('T')[0].split('-').map(Number);
+      return format(new Date(year, month - 1, day), "d 'de' MMM yyyy", { locale: ptBR });
     } catch {
       return dateStr;
     }

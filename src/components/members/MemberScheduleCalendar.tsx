@@ -14,9 +14,14 @@ interface MemberScheduleCalendarProps {
 export function MemberScheduleCalendar({ members }: MemberScheduleCalendarProps) {
   const { data: schedules, isLoading } = useSchedules();
 
+  const parseLocalDate = (dateStr: string) => {
+    const [year, month, day] = dateStr.split('T')[0].split('-').map(Number);
+    return new Date(year, month - 1, day);
+  };
+
   const formatDate = (dateStr: string) => {
     try {
-      return format(new Date(dateStr), "dd/MM/yyyy", { locale: ptBR });
+      return format(parseLocalDate(dateStr), "dd/MM/yyyy", { locale: ptBR });
     } catch {
       return dateStr;
     }
@@ -56,7 +61,7 @@ export function MemberScheduleCalendar({ members }: MemberScheduleCalendarProps)
         ) || [];
 
         // Filtrar apenas futuras
-        const upcomingSchedules = memberSchedules.filter(s => new Date(s.event_date) >= today);
+        const upcomingSchedules = memberSchedules.filter(s => parseLocalDate(s.event_date) >= today);
 
         return (
           <Card key={member.id} className="overflow-hidden">

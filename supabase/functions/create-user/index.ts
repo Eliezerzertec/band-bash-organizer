@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 
 serve(async (req) => {
@@ -69,10 +68,11 @@ serve(async (req) => {
       JSON.stringify({ user_id: userId }),
       { status: 200 }
     )
-  } catch (error) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Internal error"
     console.error("Function error:", error)
     return new Response(
-      JSON.stringify({ error: error.message || "Internal error" }),
+      JSON.stringify({ error: message }),
       { status: 500 }
     )
   }

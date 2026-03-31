@@ -1,6 +1,6 @@
 import { MainLayout } from '@/components/layout/MainLayout';
 import { useCurrentProfile } from '@/hooks/useProfiles';
-import { useSchedules, useRemoveScheduleAssignment } from '@/hooks/useSchedules';
+import { useSchedules, useRemoveScheduleAssignment, type Schedule } from '@/hooks/useSchedules';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Calendar, Clock, MapPin, Users, Music, Trash2 } from 'lucide-react';
@@ -21,12 +21,21 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useState } from 'react';
 
+interface AssignmentToRemove {
+  id: string;
+}
+
 export default function MySchedules() {
   const { data: profile, isLoading: profileLoading } = useCurrentProfile();
   const { data: schedules, isLoading: schedulesLoading } = useSchedules();
   const removeAssignment = useRemoveScheduleAssignment();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [assignmentToRemove, setAssignmentToRemove] = useState<any>(null);
+  const [assignmentToRemove, setAssignmentToRemove] = useState<AssignmentToRemove | null>(null);
+  const parseLocalDate = (dateStr: string) => {
+    const [year, month, day] = dateStr.split('T')[0].split('-').map(Number);
+    return new Date(year, month - 1, day);
+  };
+
 
   const isLoading = profileLoading || schedulesLoading;
 
@@ -39,12 +48,12 @@ export default function MySchedules() {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  const upcomingSchedules = mySchedules.filter(s => new Date(s.event_date) >= today);
-  const pastSchedules = mySchedules.filter(s => new Date(s.event_date) < today);
+  const upcomingSchedules = mySchedules.filter(s => parseLocalDate(s.event_date) >= today);
+  const pastSchedules = mySchedules.filter(s => parseLocalDate(s.event_date) < today);
 
   const formatDate = (dateStr: string) => {
     try {
-      return format(new Date(dateStr), "EEEE, d 'de' MMMM 'de' yyyy", { locale: ptBR });
+      return format(parseLocalDate(dateStr), "EEEE, d 'de' MMMM 'de' yyyy", { locale: ptBR });
     } catch {
       return dateStr;
     }
@@ -69,8 +78,8 @@ export default function MySchedules() {
     }
   };
 
-  const ScheduleCard = ({ schedule }: { schedule: any }) => {
-    const assignment = schedule.schedule_assignments?.find((sa: any) => sa.profile_id === profile?.id);
+  const ScheduleCard = ({ schedule }: { schedule: Schedule }) => {
+    const assignment = schedule.schedule_assignments?.find((sa) => sa.profile_id === profile?.id);
     
     const handleRemove = () => {
       setAssignmentToRemove(assignment);
@@ -85,7 +94,7 @@ export default function MySchedules() {
             <p className="text-sm text-muted-foreground mt-1">{schedule.description}</p>
           </div>
           <Badge variant="outline">
-            {new Date(schedule.event_date) >= today ? 'Próxima' : 'Passada'}
+            {parseLocalDate(schedule.event_date) >= today ? 'Próxima' : 'Passada'}
           </Badge>
         </div>
 
@@ -139,7 +148,7 @@ export default function MySchedules() {
           </div>
         </div>
 
-        {new Date(schedule.event_date) >= today && (
+        {parseLocalDate(schedule.event_date) >= today && (
           <div className="pt-3 border-t flex gap-2">
             <Button
               variant="outline"

@@ -25,15 +25,17 @@ interface NavItem {
   label: string;
   path: string;
   adminOnly?: boolean;
+  memberOnly?: boolean;
 }
 
 const navItems: NavItem[] = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard', adminOnly: true },
+  { icon: LayoutDashboard, label: 'Meu Dashboard', path: '/member-dashboard', memberOnly: true },
   { icon: Church, label: 'Igrejas', path: '/churches', adminOnly: true },
   { icon: Music, label: 'Ministérios', path: '/ministries', adminOnly: true },
   { icon: Users, label: 'Membros', path: '/members', adminOnly: true },
   { icon: UsersRound, label: 'Equipes', path: '/teams', adminOnly: true },
-  { icon: Calendar, label: 'Escalas', path: '/schedules', adminOnly: true },
+  { icon: Calendar, label: 'Escalas', path: '/schedules' },
   { icon: ArrowLeftRight, label: 'Substituições', path: '/substitutions' },
   { icon: MessageSquare, label: 'Mensagens', path: '/messages' },
   { icon: BarChart3, label: 'Relatórios', path: '/reports', adminOnly: true },
@@ -53,7 +55,9 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const isAdmin = hasRole('admin');
 
-  const filteredNavItems = navItems.filter(item => !item.adminOnly || isAdmin);
+  const filteredNavItems = navItems.filter(item =>
+    (!item.adminOnly || isAdmin) && (!item.memberOnly || !isAdmin)
+  );
 
   const handleNavigation = (path: string) => {
     navigate(path);
@@ -67,7 +71,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
     if (isMobile) {
       onClose();
     }
-  }, [location.pathname]);
+  }, [location.pathname, isMobile, onClose]);
 
   // Don't collapse on mobile
   const effectiveCollapsed = isMobile ? false : isCollapsed;

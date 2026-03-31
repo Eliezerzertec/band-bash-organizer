@@ -16,6 +16,21 @@
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:site" content="@valechurch" />
     <meta name="twitter:image" content="/OIP3.png" />
+    <script>
+      (function () {
+        var host = typeof globalThis !== "undefined" ? globalThis : window;
+        var mgt = host.mgt || {};
+
+        if (typeof mgt.clearMarks !== "function") {
+          mgt.clearMarks = function () {};
+        }
+
+        host.mgt = mgt;
+        if (typeof window !== "undefined") {
+          window.mgt = mgt;
+        }
+      })();
+    </script>
   </head>
 
   <body>

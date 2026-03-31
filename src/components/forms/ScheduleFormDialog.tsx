@@ -31,8 +31,7 @@ import { Loader2, Calendar, Clock, MapPin, FileText, Music, X } from 'lucide-rea
 import { Schedule, useCreateSchedule, useUpdateSchedule, useAddScheduleAssignment, useRemoveScheduleAssignment } from '@/hooks/useSchedules';
 import { useChurches } from '@/hooks/useChurches';
 import { useMinistries } from '@/hooks/useMinistries';
-import { useProfiles } from '@/hooks/useProfiles';
-import { useTeams } from '@/hooks/useTeams';
+import { useTeams, type TeamMember } from '@/hooks/useTeams';
 import { Label } from '@/components/ui/label';
 
 const scheduleSchema = z.object({
@@ -49,11 +48,17 @@ const scheduleSchema = z.object({
 
 type ScheduleFormData = z.infer<typeof scheduleSchema>;
 
-interface MemberAssignment {
-  profile_id: string;
-  name: string;
-  role_assigned: string;
-  team_id?: string;
+interface SchedulePayload {
+  title: string;
+  description: string | null;
+  event_date: string;
+  start_time: string;
+  end_time: string | null;
+  location: string | null;
+  church_id: string;
+  ministry_id: string | null;
+  created_by: null;
+  schedule_type?: 'normal' | 'especial';
 }
 
 interface ScheduleFormDialogProps {
@@ -87,11 +92,9 @@ export function ScheduleFormDialog({ open, onOpenChange, schedule }: ScheduleFor
   const removeAssignment = useRemoveScheduleAssignment();
   const { data: churches } = useChurches();
   const { data: ministries } = useMinistries();
-  const { data: profiles } = useProfiles();
   const { data: teams } = useTeams();
   const isEditing = !!schedule;
 
-  const [selectedMembers, setSelectedMembers] = useState<MemberAssignment[]>([]);
   const [selectedTeams, setSelectedTeams] = useState<string[]>([]);
 
   const form = useForm<ScheduleFormData>({
@@ -124,19 +127,12 @@ export function ScheduleFormDialog({ open, onOpenChange, schedule }: ScheduleFor
           schedule_type: schedule.schedule_type || 'normal',
         });
         
-        // Buscar nomes dos membros do perfil
         const assignments = schedule.schedule_assignments || [];
-        const membersWithNames = assignments.map((assignment) => {
-          const memberProfile = profiles?.find(p => p.id === assignment.profile_id);
-          return {
-            profile_id: assignment.profile_id,
-            name: memberProfile?.name || assignment.profile?.name || 'Membro',
-            role_assigned: assignment.role_assigned || '',
-            team_id: assignment.team_id || undefined,
-          };
-        });
-        
-        setSelectedMembers(membersWithNames);
+
+        const assignmentTeamIds = Array.from(
+          new Set(assignments.map((assignment) => assignment.team_id).filter((teamId): teamId is string => !!teamId))
+        );
+        setSelectedTeams(assignmentTeamIds);
       } else {
         const today = new Date().toISOString().split('T')[0];
         const defaultChurchId = churches && churches.length > 0 ? churches[0].id : '';
@@ -151,30 +147,10 @@ export function ScheduleFormDialog({ open, onOpenChange, schedule }: ScheduleFor
           ministry_id: '',
           schedule_type: 'normal',
         });
-        setSelectedMembers([]);
         setSelectedTeams([]);
       }
     }
-  }, [schedule, open, form, churches, profiles]);
-
-  const toggleMember = (memberId: string, memberName: string) => {
-    setSelectedMembers((prev) => {
-      const existing = prev.find((m) => m.profile_id === memberId);
-      if (existing) {
-        return prev.filter((m) => m.profile_id !== memberId);
-      } else {
-        return [
-          ...prev,
-          {
-            profile_id: memberId,
-            name: memberName,
-            role_assigned: '',
-            team_id: undefined,
-          },
-        ];
-      }
-    });
-  };
+  }, [schedule, open, form, churches]);
 
   const onSubmit = async (data: ScheduleFormData) => {
     try {
@@ -183,7 +159,7 @@ export function ScheduleFormDialog({ open, onOpenChange, schedule }: ScheduleFor
         return;
       }
 
-      const payload = {
+      const payload: SchedulePayload = {
         title: data.title,
         description: data.description || null,
         event_date: data.event_date,
@@ -193,12 +169,13 @@ export function ScheduleFormDialog({ open, onOpenChange, schedule }: ScheduleFor
         church_id: data.church_id,
         ministry_id: data.ministry_id || null,
         created_by: null,
+        schedule_type: data.schedule_type,
       };
 
       let scheduleId: string;
 
       if (isEditing && schedule) {
-        await updateSchedule.mutateAsync({ id: schedule.id, ...payload } as any);
+        await updateSchedule.mutateAsync({ id: schedule.id, ...payload });
         scheduleId = schedule.id;
         
         // Remover assignments antigos
@@ -207,7 +184,7 @@ export function ScheduleFormDialog({ open, onOpenChange, schedule }: ScheduleFor
           await removeAssignment.mutateAsync(assignment.id);
         }
       } else {
-        const result = await createSchedule.mutateAsync(payload as any);
+        const result = await createSchedule.mutateAsync(payload);
         scheduleId = result.id;
       }
 
@@ -217,12 +194,12 @@ export function ScheduleFormDialog({ open, onOpenChange, schedule }: ScheduleFor
         if (team) {
           // Adicionar cada membro da equipe
           const teamMembers = team.team_members || [];
-          for (const member of teamMembers) {
+          for (const member of teamMembers as TeamMember[]) {
             await addAssignment.mutateAsync({
               schedule_id: scheduleId,
               profile_id: member.profile_id,
               team_id: teamId,
-              role_assigned: member.skill || null,
+              role_assigned: member.role_in_team || null,
             });
           }
         }
@@ -231,7 +208,6 @@ export function ScheduleFormDialog({ open, onOpenChange, schedule }: ScheduleFor
       onOpenChange(false);
       form.reset();
       setSelectedTeams([]);
-      setSelectedMembers([]);
     } catch (error) {
       console.error('Erro ao salvar escala:', error);
       alert('Erro ao salvar escala');
@@ -239,8 +215,6 @@ export function ScheduleFormDialog({ open, onOpenChange, schedule }: ScheduleFor
   };
 
   const isPending = createSchedule.isPending || updateSchedule.isPending;
-  const filteredMembers = (profiles || []).filter((p) => p.status === 'active');
-  const selectedChurchId = form.watch('church_id');
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
