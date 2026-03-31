@@ -1,6 +1,14 @@
 import { useState } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { 
   Check, 
   X, 
@@ -12,10 +20,19 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
-import { useSubstitutionRequests, usePendingSubstitutionsCount, useRespondToSubstitution } from '@/hooks/useSubstitutions';
+import {
+  useCreateSubstitutionRequest,
+  useDeleteSubstitutionRequest,
+  useEligibleSubstitutes,
+  useMyAssignmentOptions,
+  usePendingSubstitutionsCount,
+  useRespondToSubstitution,
+  useSubstitutionRequests,
+} from '@/hooks/useSubstitutions';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { useCurrentProfile } from '@/hooks/useProfiles';
 
 const statusConfig = {
   pending: { 
@@ -42,13 +59,68 @@ export default function Substitutions() {
   const { hasRole } = useAuth();
   const isAdmin = hasRole('admin');
   const [filter, setFilter] = useState<'all' | 'pending' | 'accepted' | 'rejected'>('all');
+  const [selectedAssignmentId, setSelectedAssignmentId] = useState('');
+  const [selectedSubstituteId, setSelectedSubstituteId] = useState('');
+  const [reason, setReason] = useState('');
   
+  const { data: currentProfile } = useCurrentProfile();
   const { data: pendingCount = 0 } = usePendingSubstitutionsCount();
   const { data: requests, isLoading, error } = useSubstitutionRequests(filter === 'all' ? undefined : filter);
   const respondMutation = useRespondToSubstitution();
+  const deleteMutation = useDeleteSubstitutionRequest();
+  const createMutation = useCreateSubstitutionRequest();
+  const { data: myAssignments = [] } = useMyAssignmentOptions(currentProfile?.id);
+  const { data: eligibleSubstitutes = [] } = useEligibleSubstitutes(selectedAssignmentId || undefined);
+
+  const selectedAssignment = myAssignments.find((assignment) => assignment.id === selectedAssignmentId);
+  const normalize = (value: string) =>
+    value
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .trim();
+
+  const getCandidateInstrumentLabel = (candidate: (typeof eligibleSubstitutes)[number]) => {
+    const roleInTeam = candidate.role_in_team?.trim();
+    if (roleInTeam) return roleInTeam;
+
+    const requestedRole = selectedAssignment?.role_assigned?.trim();
+    const skills = candidate.profile.musical_skills || [];
+    if (requestedRole) {
+      const requestedRoleNormalized = normalize(requestedRole);
+      const matchedSkill = skills.find((skill) => normalize(skill) === requestedRoleNormalized);
+      if (matchedSkill) return matchedSkill;
+    }
+
+    return skills[0] || 'Sem funcao';
+  };
+
+  const handleCreateRequest = () => {
+    if (!currentProfile?.id || !selectedAssignmentId || !selectedSubstituteId) return;
+
+    createMutation.mutate(
+      {
+        requester_id: currentProfile.id,
+        schedule_assignment_id: selectedAssignmentId,
+        substitute_id: selectedSubstituteId,
+        reason: reason.trim() || undefined,
+      },
+      {
+        onSuccess: () => {
+          setSelectedAssignmentId('');
+          setSelectedSubstituteId('');
+          setReason('');
+        },
+      }
+    );
+  };
 
   const handleRespond = (id: string, status: 'accepted' | 'rejected') => {
     respondMutation.mutate({ id, status });
+  };
+
+  const handleCancel = (id: string) => {
+    deleteMutation.mutate(id);
   };
 
   const formatDate = (dateStr: string) => {
@@ -85,6 +157,77 @@ export default function Substitutions() {
       subtitle={`${pendingCount} pedidos pendentes`}
     >
       <div className="space-y-6">
+        {!isAdmin && (
+          <div className="card-elevated p-5 space-y-4">
+            <h3 className="text-base font-semibold">Solicitar Substituicao</h3>
+            <p className="text-sm text-muted-foreground">
+              Selecione sua escala e escolha um substituto da mesma categoria/função para solicitar a troca.
+            </p>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label className="text-sm font-medium">Minha escala</label>
+                <Select value={selectedAssignmentId} onValueChange={(value) => {
+                  setSelectedAssignmentId(value);
+                  setSelectedSubstituteId('');
+                }}>
+                  <SelectTrigger className="mt-1">
+                    <SelectValue placeholder="Selecione uma escala" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {myAssignments.map((assignment) => (
+                      <SelectItem key={assignment.id} value={assignment.id}>
+                        {(assignment.schedule?.title || 'Escala')} - {formatDate(assignment.schedule?.event_date || '')}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <label className="text-sm font-medium">Substituto (mesma categoria)</label>
+                <Select
+                  value={selectedSubstituteId}
+                  onValueChange={setSelectedSubstituteId}
+                  disabled={!selectedAssignmentId || eligibleSubstitutes.length === 0}
+                >
+                  <SelectTrigger className="mt-1">
+                    <SelectValue placeholder="Selecione o substituto" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {eligibleSubstitutes.map((candidate) => (
+                      <SelectItem key={candidate.profile_id} value={candidate.profile_id}>
+                        {candidate.profile.name} - {getCandidateInstrumentLabel(candidate)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium">Motivo (opcional)</label>
+              <Textarea
+                className="mt-1"
+                rows={3}
+                placeholder="Explique rapidamente o motivo. Use @nome para mencionar alguem."
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Dica: quando voce mencionar um membro com @nome, ele recebe notificacao web ao abrir o sistema.
+              </p>
+            </div>
+
+            <Button
+              onClick={handleCreateRequest}
+              disabled={!selectedAssignmentId || !selectedSubstituteId || createMutation.isPending}
+            >
+              {createMutation.isPending ? 'Enviando...' : 'Enviar solicitacao'}
+            </Button>
+          </div>
+        )}
+
         {/* Informação sobre período */}
         <div className="bg-info-light border border-info rounded-lg p-3 text-sm text-info dark:bg-info/20 dark:text-info-foreground">
           📅 Mostrando todos os pedidos de substituição dos últimos <strong>30 dias</strong>
@@ -153,6 +296,8 @@ export default function Substitutions() {
               const status = statusConfig[request.status];
               const StatusIcon = status.icon;
               const schedule = request.schedule_assignment?.schedule;
+              const canRespond = isAdmin || request.substitute?.id === currentProfile?.id;
+              const canCancel = isAdmin || request.requester_id === currentProfile?.id;
 
               return (
                 <div 
@@ -242,7 +387,7 @@ export default function Substitutions() {
 
                     {/* Status & Actions */}
                     <div className="flex items-center gap-4">
-                      {request.status === 'pending' ? (
+                      {request.status === 'pending' && canRespond ? (
                         <div className="flex items-center gap-2">
                           <Button 
                             variant="outline" 
@@ -291,11 +436,23 @@ export default function Substitutions() {
                     <span className="text-xs text-muted-foreground">
                       {formatCreatedAt(request.created_at)}
                     </span>
-                    {isAdmin && request.status === 'pending' && (
-                      <span className="text-xs text-warning font-medium">
-                        Aguardando resposta
-                      </span>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {request.status === 'pending' && !canRespond && (
+                        <span className="text-xs text-warning font-medium">Aguardando resposta do substituto</span>
+                      )}
+                      {request.status === 'pending' && canCancel && (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="h-7 px-2 text-xs border-destructive/30 text-destructive hover:bg-destructive/10"
+                          onClick={() => handleCancel(request.id)}
+                          disabled={deleteMutation.isPending}
+                        >
+                          {deleteMutation.isPending ? 'Cancelando...' : 'Cancelar pedido'}
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 </div>
               );

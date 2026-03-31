@@ -8,11 +8,13 @@ import { ThemeProvider } from "next-themes";
 
 // Pages
 import Login from "./pages/Login";
+import MusicianSignup from "./pages/MusicianSignup";
 import Dashboard from "./pages/Dashboard";
 import MemberDashboard from "./pages/MemberDashboard";
 import Churches from "./pages/Churches";
 import Ministries from "./pages/Ministries";
 import Members from "./pages/Members";
+import MemberSchedulesAdmin from "./pages/MemberSchedulesAdmin";
 import Teams from "./pages/Teams";
 import TeamForm from "./pages/TeamForm";
 import Schedules from "./pages/Schedules";
@@ -80,6 +82,12 @@ function AppRoutes() {
           <Login />
         </PublicRoute>
       } />
+
+      <Route path="/cadastro-musico" element={
+        <PublicRoute>
+          <MusicianSignup />
+        </PublicRoute>
+      } />
       
       {/* Root redirect - condicional baseado no role */}
       <Route path="/" element={
@@ -114,6 +122,12 @@ function AppRoutes() {
       <Route path="/members" element={
         <ProtectedRoute adminOnly>
           <Members />
+        </ProtectedRoute>
+      } />
+
+      <Route path="/members/:memberId/schedules" element={
+        <ProtectedRoute adminOnly>
+          <MemberSchedulesAdmin />
         </ProtectedRoute>
       } />
       
@@ -184,7 +198,12 @@ const App = () => (
         <TooltipProvider>
           <Toaster />
           <Sonner />
-          <BrowserRouter>
+          <BrowserRouter
+            future={{
+              v7_startTransition: true,
+              v7_relativeSplatPath: true,
+            }}
+          >
             <AppRoutes />
           </BrowserRouter>
         </TooltipProvider>

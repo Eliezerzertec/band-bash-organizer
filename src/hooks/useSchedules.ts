@@ -53,7 +53,6 @@ export interface SchedulePayload {
   location?: string | null;
   church_id: string;
   ministry_id?: string | null;
-  schedule_type?: string;
 }
 
 export interface ScheduleUpdatePayload extends Partial<SchedulePayload> {
@@ -125,11 +124,6 @@ export const useCreateSchedule = () => {
         ministry_id: newSchedule.ministry_id,
       };
 
-      // Adicionar schedule_type apenas se estiver disponível
-      if (newSchedule.schedule_type) {
-        insertData.schedule_type = newSchedule.schedule_type;
-      }
-
       const { data, error } = await supabase
         .from('schedules')
         .insert(insertData)
@@ -160,11 +154,6 @@ export const useUpdateSchedule = () => {
         church_id: updates.church_id,
         ministry_id: updates.ministry_id,
       };
-
-      // Adicionar schedule_type apenas se estiver disponível
-      if (updates.schedule_type) {
-        updateData.schedule_type = updates.schedule_type;
-      }
 
       const { data, error } = await supabase
         .from('schedules')

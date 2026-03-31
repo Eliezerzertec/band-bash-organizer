@@ -288,7 +288,7 @@ describe('ChurchFormDialog', () => {
 ### Longo Prazo (Futuro)
 1. [ ] PWA suporte offline
 2. [ ] Sincronização em tempo real
-3. [ ] Notificações push
+3. [ ] Notificações em tempo real no app
 4. [ ] Analytics avançado
 
 ---

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -120,7 +120,11 @@ export default function Login() {
 
           {/* Footer */}
           <div className="mt-6 text-center text-sm text-muted-foreground">
-            <p>Não tem uma conta? Contate o administrador</p>
+            <p>Não tem uma conta?{' '}
+              <Link to="/cadastro-musico" className="font-medium text-primary hover:underline">
+                Fazer cadastro
+              </Link>
+            </p>
           </div>
         </div>
       </div>

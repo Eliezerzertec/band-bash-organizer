@@ -43,7 +43,6 @@ const scheduleSchema = z.object({
   location: z.string().trim().max(255, 'Máximo 255 caracteres').optional().or(z.literal('')),
   church_id: z.string().min(1, 'Igreja é obrigatória'),
   ministry_id: z.string().optional().or(z.literal('')),
-  schedule_type: z.enum(['normal', 'especial']).default('normal'),
 });
 
 type ScheduleFormData = z.infer<typeof scheduleSchema>;
@@ -58,7 +57,6 @@ interface SchedulePayload {
   church_id: string;
   ministry_id: string | null;
   created_by: null;
-  schedule_type?: 'normal' | 'especial';
 }
 
 interface ScheduleFormDialogProps {
@@ -108,7 +106,6 @@ export function ScheduleFormDialog({ open, onOpenChange, schedule }: ScheduleFor
       location: '',
       church_id: '',
       ministry_id: '',
-      schedule_type: 'normal',
     },
   });
 
@@ -124,7 +121,6 @@ export function ScheduleFormDialog({ open, onOpenChange, schedule }: ScheduleFor
           location: schedule.location || '',
           church_id: schedule.church_id || (schedule.church?.id || ''),
           ministry_id: schedule.ministry_id || (schedule.ministry?.id || ''),
-          schedule_type: schedule.schedule_type || 'normal',
         });
         
         const assignments = schedule.schedule_assignments || [];
@@ -145,7 +141,6 @@ export function ScheduleFormDialog({ open, onOpenChange, schedule }: ScheduleFor
           location: '',
           church_id: defaultChurchId,
           ministry_id: '',
-          schedule_type: 'normal',
         });
         setSelectedTeams([]);
       }
@@ -169,7 +164,6 @@ export function ScheduleFormDialog({ open, onOpenChange, schedule }: ScheduleFor
         church_id: data.church_id,
         ministry_id: data.ministry_id || null,
         created_by: null,
-        schedule_type: data.schedule_type,
       };
 
       let scheduleId: string;
@@ -386,31 +380,6 @@ export function ScheduleFormDialog({ open, onOpenChange, schedule }: ScheduleFor
                             {ministry.name}
                           </SelectItem>
                         ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            {/* Tipo de Chamado */}
-            <div className="space-y-4">
-              <FormField
-                control={form.control}
-                name="schedule_type"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Tipo de Chamado *</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecione o tipo" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="normal">Normal</SelectItem>
-                        <SelectItem value="especial">Especial</SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />

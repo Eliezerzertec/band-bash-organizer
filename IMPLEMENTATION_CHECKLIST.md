@@ -213,7 +213,7 @@
 ### Longo Prazo (3+ meses)
 - [ ] PWA suporte offline
 - [ ] Sincronização real-time
-- [ ] Notificações push
+- [ ] Notificações em tempo real no app
 - [ ] Analytics
 - [ ] Performance optimization
 

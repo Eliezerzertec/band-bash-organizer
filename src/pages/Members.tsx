@@ -8,6 +8,7 @@ import {
   Edit,
   Trash2,
   Users,
+  Calendar,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
@@ -40,8 +41,10 @@ import { MemberFormDialog } from '@/components/forms/MemberFormDialog';
 import { CreateMemberDialog } from '@/components/forms/CreateMemberDialog';
 import { ActivityStatusBar } from '@/components/dashboard/ActivityMonitor';
 import { toast } from 'sonner';
+import { useNavigate } from 'react-router-dom';
 
 export default function Members() {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -227,6 +230,10 @@ export default function Members() {
                           <DropdownMenuItem className="gap-2" onClick={() => handleEdit(member)}>
                             <Edit className="w-4 h-4" />
                             Editar
+                          </DropdownMenuItem>
+                          <DropdownMenuItem className="gap-2" onClick={() => navigate(`/members/${member.id}/schedules`)}>
+                            <Calendar className="w-4 h-4" />
+                            Ver escalas do membro
                           </DropdownMenuItem>
                           <DropdownMenuItem 
                             className="gap-2 text-destructive focus:text-destructive"

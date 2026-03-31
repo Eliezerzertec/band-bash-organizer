@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -28,20 +28,51 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { useMessages, useUnreadMessagesCount, useMarkMessageAsRead, Message } from '@/hooks/useMessages';
+import { useMessages, useUnreadMessagesCount, useMarkMessageAsRead, useSendMessage, Message } from '@/hooks/useMessages';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { useCurrentProfile, useProfiles } from '@/hooks/useProfiles';
+import { useTeams } from '@/hooks/useTeams';
+
+type RecipientType = 'all' | 'team' | 'member';
+
+function extractMentionTokens(content: string): string[] {
+  const regex = /@([\w.-]+)/g;
+  const matches = [...content.matchAll(regex)].map((m) => m[1].toLowerCase());
+  return [...new Set(matches)];
+}
 
 export default function Messages() {
   const { hasRole } = useAuth();
   const isAdmin = hasRole('admin');
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [composeOpen, setComposeOpen] = useState(false);
+  const [recipientType, setRecipientType] = useState<RecipientType>('all');
+  const [recipientTeamId, setRecipientTeamId] = useState('');
+  const [recipientMemberId, setRecipientMemberId] = useState('');
+  const [subject, setSubject] = useState('');
+  const [content, setContent] = useState('');
   
   const { data: messages, isLoading, error } = useMessages();
   const { data: unreadCount = 0 } = useUnreadMessagesCount();
   const markAsRead = useMarkMessageAsRead();
+  const sendMessage = useSendMessage();
+  const { data: currentProfile } = useCurrentProfile();
+  const { data: profiles } = useProfiles();
+  const { data: teams } = useTeams();
+
+  const mentionCandidates = useMemo(() => {
+    const tokens = extractMentionTokens(content);
+    if (tokens.length === 0 || !profiles) return [];
+
+    return profiles.filter((profile) => {
+      const firstName = profile.name.split(' ')[0]?.toLowerCase() || '';
+      const normalizedName = profile.name.toLowerCase().replace(/\s+/g, '.');
+      return tokens.some((token) => token === firstName || token === normalizedName);
+    });
+  }, [content, profiles]);
 
   const filteredMessages = (messages || []).filter(message =>
     (message.subject || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -79,6 +110,53 @@ export default function Messages() {
     return 'member';
   };
 
+  const resetCompose = () => {
+    setRecipientType('all');
+    setRecipientTeamId('');
+    setRecipientMemberId('');
+    setSubject('');
+    setContent('');
+  };
+
+  const handleSendMessage = async () => {
+    if (!currentProfile?.id) return;
+    if (!content.trim()) return;
+
+    const payload: {
+      sender_id: string;
+      subject?: string;
+      content: string;
+      is_broadcast?: boolean;
+      recipient_team_id?: string;
+      recipient_id?: string;
+    } = {
+      sender_id: currentProfile.id,
+      subject: subject.trim() || null || undefined,
+      content: content.trim(),
+    };
+
+    if (recipientType === 'all') {
+      payload.is_broadcast = true;
+    }
+
+    if (recipientType === 'team') {
+      if (!recipientTeamId) return;
+      payload.recipient_team_id = recipientTeamId;
+    }
+
+    if (recipientType === 'member') {
+      if (!recipientMemberId) return;
+      payload.recipient_id = recipientMemberId;
+    }
+
+    sendMessage.mutate(payload, {
+      onSuccess: () => {
+        setComposeOpen(false);
+        resetCompose();
+      },
+    });
+  };
+
   return (
     <MainLayout 
       title="Mensagens" 
@@ -92,7 +170,7 @@ export default function Messages() {
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold text-foreground">Caixa de Entrada</h3>
               {isAdmin && (
-                <Dialog>
+                <Dialog open={composeOpen} onOpenChange={setComposeOpen}>
                   <DialogTrigger asChild>
                     <Button size="sm" className="gap-2 btn-gradient-primary">
                       <Plus className="w-4 h-4" />
@@ -106,7 +184,7 @@ export default function Messages() {
                     <div className="space-y-4 mt-4">
                       <div>
                         <label className="text-sm font-medium">Destinatário</label>
-                        <Select>
+                        <Select value={recipientType} onValueChange={(value: RecipientType) => setRecipientType(value)}>
                           <SelectTrigger className="mt-1">
                             <SelectValue placeholder="Selecione o destinatário" />
                           </SelectTrigger>
@@ -117,17 +195,75 @@ export default function Messages() {
                           </SelectContent>
                         </Select>
                       </div>
+
+                      {recipientType === 'team' && (
+                        <div>
+                          <label className="text-sm font-medium">Equipe</label>
+                          <Select value={recipientTeamId} onValueChange={setRecipientTeamId}>
+                            <SelectTrigger className="mt-1">
+                              <SelectValue placeholder="Selecione a equipe" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {(teams || []).map((team) => (
+                                <SelectItem key={team.id} value={team.id}>{team.name}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
+
+                      {recipientType === 'member' && (
+                        <div>
+                          <label className="text-sm font-medium">Membro</label>
+                          <Select value={recipientMemberId} onValueChange={setRecipientMemberId}>
+                            <SelectTrigger className="mt-1">
+                              <SelectValue placeholder="Selecione o membro" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {(profiles || []).map((profile) => (
+                                <SelectItem key={profile.id} value={profile.id}>{profile.name}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
+
                       <div>
                         <label className="text-sm font-medium">Assunto</label>
-                        <Input className="mt-1" placeholder="Digite o assunto" />
+                        <Input
+                          className="mt-1"
+                          placeholder="Digite o assunto"
+                          value={subject}
+                          onChange={(e) => setSubject(e.target.value)}
+                        />
                       </div>
                       <div>
                         <label className="text-sm font-medium">Mensagem</label>
-                        <Textarea className="mt-1" placeholder="Digite sua mensagem..." rows={5} />
+                        <Textarea
+                          className="mt-1"
+                          placeholder="Digite sua mensagem... Use @nome para mencionar"
+                          rows={5}
+                          value={content}
+                          onChange={(e) => setContent(e.target.value)}
+                        />
+                        {mentionCandidates.length > 0 && (
+                          <p className="text-xs text-muted-foreground mt-2">
+                            Mencoes detectadas: {mentionCandidates.map((m) => m.name).join(', ')}
+                          </p>
+                        )}
                       </div>
-                      <Button className="w-full gap-2 btn-gradient-primary">
+                      <Button
+                        className="w-full gap-2 btn-gradient-primary"
+                        onClick={handleSendMessage}
+                        disabled={
+                          sendMessage.isPending ||
+                          !content.trim() ||
+                          (recipientType === 'team' && !recipientTeamId) ||
+                          (recipientType === 'member' && !recipientMemberId)
+                        }
+                      >
                         <Send className="w-4 h-4" />
-                        Enviar Mensagem
+                        {sendMessage.isPending ? 'Enviando...' : 'Enviar Mensagem'}
                       </Button>
                     </div>
                   </DialogContent>

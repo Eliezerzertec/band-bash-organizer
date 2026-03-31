@@ -2,7 +2,7 @@ import { TrendingUp, TrendingDown, Activity } from 'lucide-react';
 import { Profile } from '@/hooks/useProfiles';
 
 interface ActivityLevel {
-  status: 'ideal' | 'low' | 'high';
+  status: 'none' | 'ideal' | 'moderate' | 'high';
   label: string;
   color: string;
   bgColor: string;
@@ -28,26 +28,27 @@ const getSchedulesThisMonth = (memberId: string): number => {
 };
 
 // Determina o nível de atividade baseado em escalas por mês
-// Critério: Ideal = 1 vez por mês
+// Critérios:
+// 0 escalas = azul
+// 1 escala = verde
+// 2-3 escalas = laranja
+// >3 escalas = vermelho
 const getActivityLevel = (member: Profile): ActivityLevel => {
   const schedulesThisMonth = getSchedulesThisMonth(member.id);
-  
-  // Critérios:
-  // Ideal: 1 escalação por mês (0.5 - 1.5)
-  // Baixo: menos de 0.5 escalações por mês
-  // Alto: mais de 1.5 escalações por mês
-  
-  if (schedulesThisMonth < 0.5) {
+
+  if (schedulesThisMonth === 0) {
     return {
-      status: 'low',
-      label: 'Pouco Participativo',
+      status: 'none',
+      label: 'Nenhuma Escala',
       color: 'text-info dark:text-info-foreground',
       bgColor: 'bg-info-light dark:bg-info/20',
       borderColor: 'border-info',
       icon: <TrendingDown className="w-5 h-5 text-info" />,
       schedulesThisMonth,
     };
-  } else if (schedulesThisMonth >= 0.5 && schedulesThisMonth <= 1.5) {
+  }
+
+  if (schedulesThisMonth === 1) {
     return {
       status: 'ideal',
       label: 'Participação Ideal',
@@ -57,9 +58,11 @@ const getActivityLevel = (member: Profile): ActivityLevel => {
       icon: <Activity className="w-5 h-5 text-success" />,
       schedulesThisMonth,
     };
-  } else {
+  }
+
+  if (schedulesThisMonth <= 3) {
     return {
-      status: 'high',
+      status: 'moderate',
       label: 'Muito Ativo',
       color: 'text-warning dark:text-warning-foreground',
       bgColor: 'bg-warning-light dark:bg-warning/20',
@@ -68,6 +71,16 @@ const getActivityLevel = (member: Profile): ActivityLevel => {
       schedulesThisMonth,
     };
   }
+
+  return {
+    status: 'high',
+    label: 'Sobrecarregado',
+    color: 'text-destructive dark:text-destructive-foreground',
+    bgColor: 'bg-destructive/10',
+    borderColor: 'border-destructive/40',
+    icon: <TrendingUp className="w-5 h-5 text-destructive" />,
+    schedulesThisMonth,
+  };
 };
 
 // Componente de barra de status compacta para tabelas
@@ -77,11 +90,13 @@ export function ActivityStatusBar({ member }: { member: Profile }) {
   return (
     <div className="flex items-center gap-2">
       <div className={`w-2 h-6 rounded-sm ${
-        activity.status === 'ideal' 
-          ? 'bg-success' 
-          : activity.status === 'low'
+        activity.status === 'none'
           ? 'bg-info'
-          : 'bg-warning'
+          : activity.status === 'ideal'
+          ? 'bg-success'
+          : activity.status === 'moderate'
+          ? 'bg-warning'
+          : 'bg-destructive'
       }`} />
       <div className="flex flex-col">
         <span className={`text-xs font-medium ${activity.color}`}>
@@ -112,11 +127,13 @@ export function ActivityMonitor({ member }: { member: Profile }) {
         </p>
       </div>
       <div className={`w-2 h-2 rounded-full ${
-        activity.status === 'ideal' 
-          ? 'bg-success' 
-          : activity.status === 'low'
+        activity.status === 'none'
           ? 'bg-info'
-          : 'bg-warning'
+          : activity.status === 'ideal'
+          ? 'bg-success'
+          : activity.status === 'moderate'
+          ? 'bg-warning'
+          : 'bg-destructive'
       }`} />
     </div>
   );
@@ -125,7 +142,7 @@ export function ActivityMonitor({ member }: { member: Profile }) {
 export function ActivityMonitorSection({ members }: { members: Profile[] }) {
   const lowParticipation = members.filter(m => {
     const activity = getActivityLevel(m);
-    return activity.status === 'low';
+    return activity.status === 'none';
   });
 
   const idealParticipation = members.filter(m => {
@@ -135,7 +152,7 @@ export function ActivityMonitorSection({ members }: { members: Profile[] }) {
 
   const highActivity = members.filter(m => {
     const activity = getActivityLevel(m);
-    return activity.status === 'high';
+    return activity.status === 'moderate' || activity.status === 'high';
   });
 
   return (

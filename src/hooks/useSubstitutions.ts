@@ -24,6 +24,7 @@ export interface SubstitutionRequest {
   };
   schedule_assignment?: {
     id: string;
+    team_id?: string | null;
     role_assigned: string | null;
     schedule?: {
       id: string;
@@ -32,6 +33,29 @@ export interface SubstitutionRequest {
       start_time: string;
     };
   };
+}
+
+export interface EligibleSubstitute {
+  profile_id: string;
+  role_in_team: string | null;
+  profile: {
+    id: string;
+    name: string;
+    avatar_url: string | null;
+    musical_skills: string[] | null;
+  };
+}
+
+export interface MyAssignmentOption {
+  id: string;
+  team_id: string | null;
+  role_assigned: string | null;
+  schedule: {
+    id: string;
+    title: string;
+    event_date: string;
+    start_time: string;
+  } | null;
 }
 
 export function useSubstitutionRequests(status?: 'pending' | 'accepted' | 'rejected') {
@@ -51,6 +75,7 @@ export function useSubstitutionRequests(status?: 'pending' | 'accepted' | 'rejec
           substitute:profiles!substitution_requests_substitute_id_fkey(id, name, avatar_url),
           schedule_assignment:schedule_assignments(
             id,
+            team_id,
             role_assigned,
             schedule:schedules(id, title, event_date, start_time)
           )
@@ -96,6 +121,53 @@ export function useCreateSubstitutionRequest() {
       substitute_id?: string; 
       reason?: string 
     }) => {
+      if (request.substitute_id && request.substitute_id === request.requester_id) {
+        throw new Error('O membro escalado nao pode ser substituto de si mesmo.');
+      }
+
+      if (request.substitute_id) {
+        const { data: assignmentData, error: assignmentError } = await supabase
+          .from('schedule_assignments')
+          .select('schedule_id, schedule:schedules!inner(event_date)')
+          .eq('id', request.schedule_assignment_id)
+          .maybeSingle();
+
+        if (assignmentError) throw assignmentError;
+
+        const scheduleId = assignmentData?.schedule_id;
+        const eventDate = assignmentData?.schedule?.event_date;
+
+        if (eventDate) {
+          const { data: sameDateAssignment, error: sameDateError } = await supabase
+            .from('schedule_assignments')
+            .select('id, schedule:schedules!inner(event_date)')
+            .eq('profile_id', request.substitute_id)
+            .eq('schedule.event_date', eventDate)
+            .neq('id', request.schedule_assignment_id)
+            .maybeSingle();
+
+          if (sameDateError) throw sameDateError;
+          if (sameDateAssignment) {
+            throw new Error('Este membro ja esta escalado na mesma data e nao pode ser substituto.');
+          }
+        }
+
+        if (scheduleId) {
+          const { data: alreadyAssigned, error: alreadyAssignedError } = await supabase
+            .from('schedule_assignments')
+            .select('id')
+            .eq('schedule_id', scheduleId)
+            .eq('profile_id', request.substitute_id)
+            .neq('id', request.schedule_assignment_id)
+            .maybeSingle();
+
+          if (alreadyAssignedError) throw alreadyAssignedError;
+          if (alreadyAssigned) {
+            throw new Error('Este membro ja esta escalado na mesma agenda e nao pode ser substituto.');
+          }
+        }
+      }
+
       const { data, error } = await supabase
         .from('substitution_requests')
         .insert(request)
@@ -115,6 +187,140 @@ export function useCreateSubstitutionRequest() {
   });
 }
 
+export function useMyAssignmentOptions(profileId?: string) {
+  return useQuery({
+    queryKey: ['substitution_assignment_options', profileId],
+    enabled: !!profileId,
+    queryFn: async () => {
+      if (!profileId) return [] as MyAssignmentOption[];
+
+      const today = new Date().toISOString().split('T')[0];
+
+      const { data, error } = await supabase
+        .from('schedule_assignments')
+        .select(`
+          id,
+          team_id,
+          role_assigned,
+          schedule:schedules(id, title, event_date, start_time)
+        `)
+        .eq('profile_id', profileId)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      const rows = ((data || []) as MyAssignmentOption[]).filter((item) => {
+        const eventDate = item.schedule?.event_date;
+        return !!eventDate && eventDate >= today;
+      });
+
+      return rows;
+    },
+  });
+}
+
+export function useEligibleSubstitutes(assignmentId?: string) {
+  return useQuery({
+    queryKey: ['eligible_substitutes', assignmentId],
+    enabled: !!assignmentId,
+    queryFn: async () => {
+      if (!assignmentId) return [] as EligibleSubstitute[];
+
+      const { data: assignment, error: assignmentError } = await supabase
+        .from('schedule_assignments')
+        .select('id, team_id, schedule_id, role_assigned, profile_id, schedule:schedules!inner(event_date)')
+        .eq('id', assignmentId)
+        .maybeSingle();
+
+      if (assignmentError) throw assignmentError;
+      if (!assignment?.team_id) return [] as EligibleSubstitute[];
+
+      let assignedProfileIds = new Set<string>();
+      let sameDateProfileIds = new Set<string>();
+
+      if (assignment.schedule_id) {
+        const { data: sameScheduleAssignments, error: sameScheduleError } = await supabase
+          .from('schedule_assignments')
+          .select('profile_id')
+          .eq('schedule_id', assignment.schedule_id)
+          .neq('id', assignment.id);
+
+        if (sameScheduleError) throw sameScheduleError;
+
+        assignedProfileIds = new Set(
+          (sameScheduleAssignments || [])
+            .map((row) => row.profile_id)
+            .filter((profileId): profileId is string => !!profileId)
+        );
+      }
+
+      const targetDate = assignment.schedule?.event_date;
+      if (targetDate) {
+        const { data: sameDateAssignments, error: sameDateError } = await supabase
+          .from('schedule_assignments')
+          .select('profile_id, schedule:schedules!inner(event_date)')
+          .eq('schedule.event_date', targetDate)
+          .neq('id', assignment.id);
+
+        if (sameDateError) throw sameDateError;
+
+        sameDateProfileIds = new Set(
+          (sameDateAssignments || [])
+            .map((row) => row.profile_id)
+            .filter((profileId): profileId is string => !!profileId)
+        );
+      }
+
+      const { data: members, error: membersError } = await supabase
+        .from('team_members')
+        .select('profile_id, role_in_team, profile:profiles(id, name, avatar_url, musical_skills)')
+        .eq('team_id', assignment.team_id)
+        .neq('profile_id', assignment.profile_id);
+
+      if (membersError) throw membersError;
+
+      const memberList = ((members || []) as EligibleSubstitute[]).filter(
+        (member) => !assignedProfileIds.has(member.profile_id) && !sameDateProfileIds.has(member.profile_id)
+      );
+      const normalize = (value: string) =>
+        value
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .toLowerCase()
+          .trim();
+
+      let requestedRole = assignment.role_assigned ? normalize(assignment.role_assigned) : '';
+
+      if (!requestedRole) {
+        const { data: assigneeTeamMember, error: assigneeTeamMemberError } = await supabase
+          .from('team_members')
+          .select('role_in_team')
+          .eq('team_id', assignment.team_id)
+          .eq('profile_id', assignment.profile_id)
+          .maybeSingle();
+
+        if (assigneeTeamMemberError) throw assigneeTeamMemberError;
+        requestedRole = assigneeTeamMember?.role_in_team ? normalize(assigneeTeamMember.role_in_team) : '';
+      }
+
+      if (!requestedRole) {
+        return [] as EligibleSubstitute[];
+      }
+
+      const sameCategory = memberList.filter((member) => {
+        const teamRole = member.role_in_team ? normalize(member.role_in_team) : null;
+        const skills = (member.profile.musical_skills || []).map((s) => normalize(s));
+        return teamRole === requestedRole || skills.includes(requestedRole);
+      });
+
+      return sameCategory.sort((a, b) =>
+        (a.profile.name || '').localeCompare(b.profile.name || '', 'pt-BR', {
+          sensitivity: 'base',
+        })
+      );
+    },
+  });
+}
+
 export function useRespondToSubstitution() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -125,6 +331,64 @@ export function useRespondToSubstitution() {
       status: 'accepted' | 'rejected'; 
       response_message?: string 
     }) => {
+      if (status === 'accepted') {
+        const { data: requestData, error: requestError } = await supabase
+          .from('substitution_requests')
+          .select(`
+            schedule_assignment_id,
+            substitute_id,
+            schedule_assignment:schedule_assignments!inner(id, schedule_id, schedule:schedules!inner(event_date))
+          `)
+          .eq('id', id)
+          .single();
+
+        if (requestError) throw requestError;
+        if (!requestData.substitute_id) {
+          throw new Error('Esta solicitacao nao possui substituto definido.');
+        }
+
+        const scheduleId = requestData.schedule_assignment?.schedule_id;
+        const eventDate = requestData.schedule_assignment?.schedule?.event_date;
+        if (!scheduleId) {
+          throw new Error('Nao foi possivel identificar a escala da solicitacao.');
+        }
+
+        if (eventDate) {
+          const { data: sameDateConflict, error: sameDateError } = await supabase
+            .from('schedule_assignments')
+            .select('id, schedule:schedules!inner(event_date)')
+            .eq('profile_id', requestData.substitute_id)
+            .eq('schedule.event_date', eventDate)
+            .neq('id', requestData.schedule_assignment_id)
+            .maybeSingle();
+
+          if (sameDateError) throw sameDateError;
+          if (sameDateConflict) {
+            throw new Error('Este membro ja possui escala na mesma data. Escolha outro substituto.');
+          }
+        }
+
+        const { data: existingAssignment, error: existingError } = await supabase
+          .from('schedule_assignments')
+          .select('id')
+          .eq('schedule_id', scheduleId)
+          .eq('profile_id', requestData.substitute_id)
+          .neq('id', requestData.schedule_assignment_id)
+          .maybeSingle();
+
+        if (existingError) throw existingError;
+        if (existingAssignment) {
+          throw new Error('Este membro ja esta escalado neste evento. Escolha outro substituto.');
+        }
+
+        const { error: assignmentError } = await supabase
+          .from('schedule_assignments')
+          .update({ profile_id: requestData.substitute_id })
+          .eq('id', requestData.schedule_assignment_id);
+
+        if (assignmentError) throw assignmentError;
+      }
+
       const { data, error } = await supabase
         .from('substitution_requests')
         .update({ status, response_message })
@@ -137,6 +401,7 @@ export function useRespondToSubstitution() {
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['substitution_requests'] });
+      queryClient.invalidateQueries({ queryKey: ['schedules'] });
       toast({ 
         title: variables.status === 'accepted' 
           ? 'Substituição aceita!' 
@@ -155,19 +420,25 @@ export function useDeleteSubstitutionRequest() {
 
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('substitution_requests')
         .delete()
-        .eq('id', id);
+        .eq('id', id)
+        .eq('status', 'pending')
+        .select('id')
+        .maybeSingle();
       
       if (error) throw error;
+      if (!data) {
+        throw new Error('Apenas pedidos pendentes podem ser cancelados.');
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['substitution_requests'] });
-      toast({ title: 'Solicitação excluída!' });
+      toast({ title: 'Solicitação cancelada!' });
     },
     onError: (error) => {
-      toast({ title: 'Erro ao excluir solicitação', description: error.message, variant: 'destructive' });
+      toast({ title: 'Erro ao cancelar solicitação', description: error.message, variant: 'destructive' });
     },
   });
 }

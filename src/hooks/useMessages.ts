@@ -97,7 +97,7 @@ export function useSendMessage() {
 
   return useMutation({
     mutationFn: async (message: {
-      church_id: string;
+      church_id?: string;
       sender_id: string;
       recipient_id?: string;
       recipient_team_id?: string;
@@ -105,9 +105,33 @@ export function useSendMessage() {
       content: string;
       is_broadcast?: boolean;
     }) => {
+      let churchId = message.church_id;
+
+      if (!churchId) {
+        const { data: { session } } = await supabase.auth.getSession();
+        const currentUserId = session?.user?.id;
+        if (!currentUserId) {
+          throw new Error('Usuario nao autenticado para enviar mensagem.');
+        }
+
+        const { data: roleData, error: roleError } = await supabase
+          .from('user_roles')
+          .select('church_id')
+          .eq('user_id', currentUserId)
+          .limit(1)
+          .maybeSingle();
+
+        if (roleError) throw roleError;
+        if (!roleData?.church_id) {
+          throw new Error('Nao foi possivel identificar a igreja para envio da mensagem.');
+        }
+
+        churchId = roleData.church_id;
+      }
+
       const { data, error } = await supabase
         .from('messages')
-        .insert(message)
+        .insert({ ...message, church_id: churchId })
         .select()
         .single();
       

@@ -1,36 +1,16 @@
 import { MainLayout } from '@/components/layout/MainLayout';
 import { useCurrentProfile } from '@/hooks/useProfiles';
-import { useSchedules, useRemoveScheduleAssignment, type Schedule } from '@/hooks/useSchedules';
+import { useSchedules, type Schedule } from '@/hooks/useSchedules';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Calendar, Clock, MapPin, Users, Music, Trash2 } from 'lucide-react';
+import { Calendar, Clock, MapPin, Users, Music } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { toast } from 'sonner';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
-import { useState } from 'react';
-
-interface AssignmentToRemove {
-  id: string;
-}
 
 export default function MySchedules() {
   const { data: profile, isLoading: profileLoading } = useCurrentProfile();
   const { data: schedules, isLoading: schedulesLoading } = useSchedules();
-  const removeAssignment = useRemoveScheduleAssignment();
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [assignmentToRemove, setAssignmentToRemove] = useState<AssignmentToRemove | null>(null);
   const parseLocalDate = (dateStr: string) => {
     const [year, month, day] = dateStr.split('T')[0].split('-').map(Number);
     return new Date(year, month - 1, day);
@@ -63,28 +43,9 @@ export default function MySchedules() {
     return timeStr?.slice(0, 5) || '';
   };
 
-  const confirmRemove = () => {
-    if (assignmentToRemove) {
-      removeAssignment.mutate(assignmentToRemove.id, {
-        onSuccess: () => {
-          toast.success('Você foi removido da escala!');
-          setDeleteDialogOpen(false);
-          setAssignmentToRemove(null);
-        },
-        onError: (error) => {
-          toast.error(`Erro ao remover: ${error.message}`);
-        },
-      });
-    }
-  };
-
   const ScheduleCard = ({ schedule }: { schedule: Schedule }) => {
     const assignment = schedule.schedule_assignments?.find((sa) => sa.profile_id === profile?.id);
     
-    const handleRemove = () => {
-      setAssignmentToRemove(assignment);
-      setDeleteDialogOpen(true);
-    };
     
     return (
       <div className="border rounded-xl p-5 hover:bg-accent/50 transition-colors space-y-3">
@@ -149,17 +110,10 @@ export default function MySchedules() {
         </div>
 
         {parseLocalDate(schedule.event_date) >= today && (
-          <div className="pt-3 border-t flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              className="text-destructive hover:text-destructive gap-2"
-              onClick={handleRemove}
-              disabled={removeAssignment.isPending}
-            >
-              <Trash2 className="w-4 h-4" />
-              Remover da Escala
-            </Button>
+          <div className="pt-3 border-t">
+            <p className="text-xs text-muted-foreground">
+              Remocao direta desabilitada. Caso nao possa cumprir esta escala, utilize a tela de substituicoes.
+            </p>
           </div>
         )}
       </div>
@@ -231,28 +185,6 @@ export default function MySchedules() {
             </p>
           </div>
         )}
-
-        {/* Dialog de Confirmação */}
-        <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Remover da Escala?</AlertDialogTitle>
-              <AlertDialogDescription>
-                Você tem certeza que deseja se remover desta escala? Esta ação não pode ser desfeita.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancelar</AlertDialogCancel>
-              <AlertDialogAction
-                onClick={() => confirmRemove()}
-                disabled={removeAssignment.isPending}
-                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              >
-                {removeAssignment.isPending ? 'Removendo...' : 'Remover'}
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
       </div>
     </MainLayout>
   );

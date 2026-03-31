@@ -32,12 +32,13 @@ class NotificationService {
       return false;
     }
 
+    this.permission = this.isSupported ? Notification.permission : 'denied';
+
     if (this.permission === 'granted') {
       return true;
     }
 
     if (this.permission === 'denied') {
-      console.warn('Permissão de notificações foi negada');
       return false;
     }
 
