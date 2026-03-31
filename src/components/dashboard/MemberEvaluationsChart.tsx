@@ -28,6 +28,11 @@ function getScoreColor(score: number): string {
   return 'hsl(0, 85%, 60%)';                     // Vermelho
 }
 
+function toScorePoints(overallScore: number): number {
+  // Compatibilidade: migrações antigas podem retornar 1-5, novas retornam 0-1000.
+  return overallScore <= 5 ? Math.round(overallScore * 200) : Math.round(overallScore);
+}
+
 export function MemberEvaluationsChart() {
   const { hasRole } = useAuth();
   const { data: profile } = useCurrentProfile();
@@ -46,7 +51,7 @@ export function MemberEvaluationsChart() {
   // Converter para escala 0-1000 para reaproveitar o gauge existente
   const formattedScores: MemberScore[] = memberScoresData.map((score) => {
     const overall = Number(score.overall_score || 0);
-    const score1000 = Math.round(overall * 200);
+    const score1000 = toScorePoints(overall);
 
     return {
       id: score.profile_id,
@@ -121,7 +126,7 @@ export function MemberEvaluationsChart() {
             <option value="">Selecionar membro...</option>
             {formattedScores.map(member => (
               <option key={member.id} value={member.id}>
-                {member.name} ({(member.score / 200).toFixed(1)}★)
+                {member.name} ({member.score} pts)
               </option>
             ))}
           </select>
@@ -203,7 +208,7 @@ export function MemberEvaluationsChart() {
                 <div className="min-w-0">
                   <p className="text-sm font-medium text-foreground truncate">{member.name}</p>
                   <p className="text-xs text-muted-foreground">
-                    Avaliadores: {member.total_evaluators} | {(member.score / 200).toFixed(1)}★
+                    Avaliadores: {member.total_evaluators} | {member.score} pts
                   </p>
                 </div>
               </div>

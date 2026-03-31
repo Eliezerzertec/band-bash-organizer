@@ -8,30 +8,118 @@ import { useCurrentProfile } from '@/hooks/useProfiles';
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = supabase as unknown as any;
 
+export const EVAL_CRITERIA = [
+  { key: 'relationship_with_god', label: 'Relacionamento com Deus' },
+  { key: 'character_integrity', label: 'Caráter e integridade' },
+  { key: 'leadership_submission', label: 'Submissão à liderança' },
+  { key: 'musical_skill', label: 'Habilidade Musical' },
+  { key: 'pitch_technical_precision_metronome', label: 'Afinação / precisão técnica / metrônomo' },
+  { key: 'instrument_voice_knowledge', label: 'Conhecimento do instrumento/voz' },
+  { key: 'musical_development', label: 'Musicalidade (desenvolvimento musical na banda)' },
+  { key: 'punctuality_frequency', label: 'Pontualidade e frequência' },
+  { key: 'preparation_before_rehearsal', label: 'Preparação prévia (estuda antes do ensaio)' },
+  { key: 'availability_for_schedule', label: 'Disponibilidade na escala' },
+  { key: 'teamwork', label: 'Trabalho em Equipe' },
+  { key: 'listening_sensitivity', label: 'Escuta e sensibilidade ao conjunto' },
+  { key: 'respectful_communication', label: 'Comunicação respeitosa' },
+  { key: 'adaptability', label: 'Adaptabilidade a mudanças' },
+  { key: 'worship_posture_focus', label: 'Postura e foco no culto' },
+  { key: 'genuine_expression', label: 'Expressão genuína' },
+  { key: 'worship_leader_sensitivity', label: 'Sensibilidade ao líder de louvor' },
+] as const;
+
+export type EvalCriterionKey = typeof EVAL_CRITERIA[number]['key'];
+
+type CriterionRatings = Record<EvalCriterionKey, number>;
+type CriterionAverages = { [K in EvalCriterionKey as `avg_${K}`]: number };
+
+function average(values: number[]): number {
+  if (!values.length) return 0;
+  return Math.round((values.reduce((acc, value) => acc + value, 0) / values.length) * 100) / 100;
+}
+
+function isMissingColumnError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false;
+  const maybeError = error as { code?: string; message?: string; details?: string };
+  const text = `${maybeError.message ?? ''} ${maybeError.details ?? ''}`.toLowerCase();
+  return maybeError.code === 'PGRST204' || text.includes('column') && text.includes('peer_evaluations');
+}
+
+function isDuplicateKeyError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false;
+  const maybeError = error as { code?: string; message?: string; details?: string };
+  const text = `${maybeError.message ?? ''} ${maybeError.details ?? ''}`.toLowerCase();
+  return maybeError.code === '23505' || text.includes('duplicate key');
+}
+
+function buildLegacyCriteriaPayload(payload: CriterionRatings) {
+  const musicality = average([
+    payload.musical_skill,
+    payload.pitch_technical_precision_metronome,
+    payload.instrument_voice_knowledge,
+    payload.musical_development,
+  ]);
+
+  const punctuality = payload.punctuality_frequency;
+  const musicPreparation = payload.preparation_before_rehearsal;
+
+  const groupBehavior = average([
+    payload.teamwork,
+    payload.listening_sensitivity,
+    payload.respectful_communication,
+    payload.adaptability,
+  ]);
+
+  const temperament = payload.character_integrity;
+
+  const groupContribution = average([
+    payload.relationship_with_god,
+    payload.leadership_submission,
+    payload.availability_for_schedule,
+    payload.worship_posture_focus,
+    payload.genuine_expression,
+    payload.worship_leader_sensitivity,
+  ]);
+
+  return {
+    musicality: Math.min(5, Math.max(1, Math.round(musicality))),
+    punctuality: Math.min(5, Math.max(1, Math.round(punctuality))),
+    music_preparation: Math.min(5, Math.max(1, Math.round(musicPreparation))),
+    group_behavior: Math.min(5, Math.max(1, Math.round(groupBehavior))),
+    temperament: Math.min(5, Math.max(1, Math.round(temperament))),
+    group_contribution: Math.min(5, Math.max(1, Math.round(groupContribution))),
+  };
+}
+
 export interface PeerEvaluation {
   id: string;
   evaluator_id: string;
   evaluated_id: string;
   church_id: string | null;
-  musicality: number;
-  punctuality: number;
-  music_preparation: number;
-  group_behavior: number;
-  temperament: number;
-  group_contribution: number;
+  relationship_with_god: number;
+  character_integrity: number;
+  leadership_submission: number;
+  musical_skill: number;
+  pitch_technical_precision_metronome: number;
+  instrument_voice_knowledge: number;
+  musical_development: number;
+  punctuality_frequency: number;
+  preparation_before_rehearsal: number;
+  availability_for_schedule: number;
+  teamwork: number;
+  listening_sensitivity: number;
+  respectful_communication: number;
+  adaptability: number;
+  worship_posture_focus: number;
+  genuine_expression: number;
+  worship_leader_sensitivity: number;
   created_at: string;
   updated_at: string;
 }
 
-export interface PeerEvaluationScore {
+export interface PeerEvaluationScore extends CriterionAverages {
   profile_id: string;
   total_evaluators: number;
-  avg_musicality: number;
-  avg_punctuality: number;
-  avg_music_preparation: number;
-  avg_group_behavior: number;
-  avg_temperament: number;
-  avg_group_contribution: number;
   overall_score: number;
   // enriquecido no frontend
   name?: string;
@@ -75,17 +163,6 @@ async function enrichScoresWithMemberData(scores: PeerEvaluationScore[]): Promis
   });
 }
 
-export const EVAL_CRITERIA = [
-  { key: 'musicality',         label: 'Musicalidade' },
-  { key: 'punctuality',        label: 'Comprometimento com horário' },
-  { key: 'music_preparation',  label: 'Comprometimento em tirar as músicas' },
-  { key: 'group_behavior',     label: 'Comportamento no grupo' },
-  { key: 'temperament',        label: 'Temperamento' },
-  { key: 'group_contribution', label: 'Contribuição para o crescimento e harmonia do grupo' },
-] as const;
-
-export type EvalCriterionKey = typeof EVAL_CRITERIA[number]['key'];
-
 // Escore geral de um membro (via view peer_evaluation_scores)
 export function usePeerEvaluationScore(profileId: string) {
   return useQuery({
@@ -107,9 +184,14 @@ export function usePeerEvaluationScore(profileId: string) {
 
 // Todos os escores para visão geral / admin
 export function useAllPeerEvaluationScores() {
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
+
   return useQuery({
-    queryKey: ['peer-eval-scores-all'],
+    queryKey: ['peer-eval-scores-all', isAdmin],
     queryFn: async () => {
+      if (!isAdmin) return [];
+
       const { data, error } = await db
         .from('peer_evaluation_scores')
         .select('*')
@@ -119,6 +201,7 @@ export function useAllPeerEvaluationScores() {
       const enriched = await enrichScoresWithMemberData(scores);
       return enriched.sort((a, b) => Number(b.overall_score) - Number(a.overall_score));
     },
+    enabled: isAdmin,
   });
 }
 
@@ -173,13 +256,7 @@ export function useUpsertPeerEvaluation() {
   return useMutation({
     mutationFn: async (payload: {
       evaluated_id: string;
-      musicality: number;
-      punctuality: number;
-      music_preparation: number;
-      group_behavior: number;
-      temperament: number;
-      group_contribution: number;
-    }) => {
+    } & CriterionRatings) => {
       if (!user) throw new Error('Usuário não autenticado');
       if (!currentProfile?.id) throw new Error('Perfil do usuário não encontrado');
       if (payload.evaluated_id === currentProfile.id) throw new Error('Você não pode avaliar a si mesmo');
@@ -190,14 +267,61 @@ export function useUpsertPeerEvaluation() {
         updated_at: new Date().toISOString(),
       };
 
-      const { data, error } = await db
-        .from('peer_evaluations')
-        .upsert(record, { onConflict: 'evaluator_id,evaluated_id' })
-        .select()
-        .single();
+      // Fluxo primário: tenta com schema atual (17 critérios), sem depender de select de retorno.
+      // Isso evita erros de RLS no retorno e reduz falhas com schema cache.
+      const insertPrimary = await db.from('peer_evaluations').insert(record);
 
-      if (error) throw error;
-      return data as PeerEvaluation;
+      if (!insertPrimary.error) {
+        return { id: 'inserted' } as PeerEvaluation;
+      }
+
+      // Se já existe avaliação para o par, atualiza a linha existente.
+      if (isDuplicateKeyError(insertPrimary.error)) {
+        const updatePrimary = await db
+          .from('peer_evaluations')
+          .update({ ...record })
+          .eq('evaluator_id', currentProfile.id)
+          .eq('evaluated_id', payload.evaluated_id);
+
+        if (!updatePrimary.error) {
+          return { id: 'updated' } as PeerEvaluation;
+        }
+
+        if (!isMissingColumnError(updatePrimary.error)) {
+          throw updatePrimary.error;
+        }
+      } else if (!isMissingColumnError(insertPrimary.error)) {
+        throw insertPrimary.error;
+      }
+
+      // Fallback: banco ainda com schema antigo (6 critérios).
+      const legacyRecord = {
+        evaluator_id: currentProfile.id,
+        evaluated_id: payload.evaluated_id,
+        ...buildLegacyCriteriaPayload(payload),
+        updated_at: new Date().toISOString(),
+      };
+
+      const legacyInsert = await db.from('peer_evaluations').insert(legacyRecord);
+      if (!legacyInsert.error) {
+        return { id: 'inserted-legacy' } as PeerEvaluation;
+      }
+
+      if (isDuplicateKeyError(legacyInsert.error)) {
+        const legacyUpdate = await db
+          .from('peer_evaluations')
+          .update({ ...legacyRecord })
+          .eq('evaluator_id', currentProfile.id)
+          .eq('evaluated_id', payload.evaluated_id);
+
+        if (!legacyUpdate.error) {
+          return { id: 'updated-legacy' } as PeerEvaluation;
+        }
+
+        throw legacyUpdate.error;
+      }
+
+      throw legacyInsert.error;
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['peer-eval-score', variables.evaluated_id] });

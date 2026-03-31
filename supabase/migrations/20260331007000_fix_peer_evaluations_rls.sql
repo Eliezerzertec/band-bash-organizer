@@ -15,12 +15,6 @@ USING (
   EXISTS (
     SELECT 1
     FROM profiles p
-    WHERE p.id = peer_evaluations.evaluator_id
-      AND p.user_id = auth.uid()
-  )
-  OR EXISTS (
-    SELECT 1
-    FROM profiles p
     WHERE p.id = peer_evaluations.evaluated_id
       AND p.user_id = auth.uid()
   )

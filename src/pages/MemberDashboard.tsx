@@ -16,6 +16,11 @@ import { useNavigate } from 'react-router-dom';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Calendar } from '@/components/ui/calendar';
 
+function toScorePoints(overallScore: number): number {
+  // Compatibilidade: migrações antigas podem retornar 1-5, novas retornam 0-1000.
+  return overallScore <= 5 ? Math.round(overallScore * 200) : Math.round(overallScore);
+}
+
 export default function MemberDashboard() {
   const navigate = useNavigate();
   const { data: profile, isLoading: profileLoading } = useCurrentProfile();
@@ -618,8 +623,8 @@ export default function MemberDashboard() {
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <span className="text-2xl font-bold">
-                        {Number(peerScore.overall_score).toFixed(1)}
-                        <span className="text-sm font-normal text-muted-foreground"> / 5</span>
+                        {toScorePoints(Number(peerScore.overall_score || 0))}
+                        <span className="text-sm font-normal text-muted-foreground"> pts</span>
                       </span>
                       <span className="text-xs text-muted-foreground">{peerScore.total_evaluators} avaliador(es)</span>
                     </div>

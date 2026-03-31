@@ -11,11 +11,18 @@ import {
   EVAL_CRITERIA,
   type EvalCriterionKey,
   useMembersToEvaluate,
-  useMyEvaluationOf,
   useUpsertPeerEvaluation,
   usePeerEvaluationScore,
   useAllPeerEvaluationScores,
 } from '@/hooks/usePeerEvaluations';
+
+const createInitialRatings = (): Record<EvalCriterionKey, number> =>
+  Object.fromEntries(EVAL_CRITERIA.map(({ key }) => [key, 0])) as Record<EvalCriterionKey, number>;
+
+function toScorePoints(overallScore: number): number {
+  // Compatibilidade: migrações antigas podem retornar 1-5, novas retornam 0-1000.
+  return overallScore <= 5 ? Math.round(overallScore * 200) : Math.round(overallScore);
+}
 
 // ─── Star Rating ──────────────────────────────────────────────────────────────
 function StarRating({
@@ -55,17 +62,18 @@ function StarRating({
 
 // ─── Score Badge ──────────────────────────────────────────────────────────────
 function ScoreBadge({ score }: { score: number }) {
+  const points = toScorePoints(score);
   const color =
-    score >= 4.5
+    points >= 900
       ? 'bg-green-500'
-      : score >= 3.5
+      : points >= 700
       ? 'bg-blue-500'
-      : score >= 2.5
+      : points >= 500
       ? 'bg-yellow-500'
       : 'bg-red-500';
   return (
     <span className={`${color} text-white text-xs font-bold px-2 py-0.5 rounded-full`}>
-      {score.toFixed(1)} ★
+      {points} pts
     </span>
   );
 }
@@ -80,31 +88,9 @@ function EvalForm({
   memberName: string;
   onClose: () => void;
 }) {
-  const { data: existing } = useMyEvaluationOf(memberId);
   const upsert = useUpsertPeerEvaluation();
 
-  const [ratings, setRatings] = useState<Record<EvalCriterionKey, number>>({
-    musicality: 0,
-    punctuality: 0,
-    music_preparation: 0,
-    group_behavior: 0,
-    temperament: 0,
-    group_contribution: 0,
-  });
-
-  // Preencher com avaliação existente quando chegar
-  const [synced, setSynced] = useState(false);
-  if (!synced && existing) {
-    setRatings({
-      musicality: existing.musicality,
-      punctuality: existing.punctuality,
-      music_preparation: existing.music_preparation,
-      group_behavior: existing.group_behavior,
-      temperament: existing.temperament,
-      group_contribution: existing.group_contribution,
-    });
-    setSynced(true);
-  }
+  const [ratings, setRatings] = useState<Record<EvalCriterionKey, number>>(createInitialRatings);
 
   const allFilled = Object.values(ratings).every((v) => v > 0);
 
@@ -137,7 +123,7 @@ function EvalForm({
           disabled={!allFilled || upsert.isPending}
           onClick={handleSubmit}
         >
-          {upsert.isPending ? 'Salvando...' : existing ? 'Atualizar avaliação' : 'Enviar avaliação'}
+          {upsert.isPending ? 'Salvando...' : 'Salvar avaliação'}
         </Button>
       </div>
     </div>
@@ -151,8 +137,6 @@ function MemberEvalCard({
   member: { id: string; name: string | null; avatar_url: string | null; musical_skills: string[] | null };
 }) {
   const [open, setOpen] = useState(false);
-  const { data: existing } = useMyEvaluationOf(member.id);
-  const { data: score } = usePeerEvaluationScore(member.id);
   const name = member.name ?? 'Membro';
 
   return (
@@ -172,17 +156,13 @@ function MemberEvalCard({
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {score && <ScoreBadge score={Number(score.overall_score)} />}
-            {existing && (
-              <Badge variant="outline" className="text-xs">Avaliado</Badge>
-            )}
             <Button
               variant="ghost"
               size="sm"
               onClick={() => setOpen((v) => !v)}
             >
               {open ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-              {existing ? 'Editar' : 'Avaliar'}
+              Avaliar
             </Button>
           </div>
         </div>
@@ -248,8 +228,9 @@ export default function PeerEvaluations() {
   const { user } = useAuth();
   const { data: currentProfile } = useCurrentProfile();
   const { data: members, isLoading } = useMembersToEvaluate();
+  const isAdmin = user?.role === 'admin';
+  const { data: myScore, isLoading: isLoadingMyScore } = usePeerEvaluationScore(currentProfile?.id || '');
   const [tab, setTab] = useState<'evaluate' | 'scores'>('evaluate');
-  void currentProfile; // usado para consistência futura
 
   if (!user) return null;
 
@@ -279,15 +260,27 @@ export default function PeerEvaluations() {
           <User className="inline w-4 h-4 mr-1" />
           Avaliar colegas
         </button>
-        <button
-          onClick={() => setTab('scores')}
-          className={`pb-2 px-1 text-sm font-medium transition-colors border-b-2 -mb-px ${
-            tab === 'scores' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'
-          }`}
-        >
-          <Award className="inline w-4 h-4 mr-1" />
-          Escores gerais
-        </button>
+        {isAdmin ? (
+          <button
+            onClick={() => setTab('scores')}
+            className={`pb-2 px-1 text-sm font-medium transition-colors border-b-2 -mb-px ${
+              tab === 'scores' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <Award className="inline w-4 h-4 mr-1" />
+            Escores gerais
+          </button>
+        ) : (
+          <button
+            onClick={() => setTab('scores')}
+            className={`pb-2 px-1 text-sm font-medium transition-colors border-b-2 -mb-px ${
+              tab === 'scores' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <Award className="inline w-4 h-4 mr-1" />
+            Minha pontuação
+          </button>
+        )}
       </div>
 
       {/* Conteúdo */}
@@ -307,10 +300,37 @@ export default function PeerEvaluations() {
       ) : (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Ranking de Escores</CardTitle>
+            <CardTitle className="text-base">{isAdmin ? 'Ranking de Escores' : 'Minha pontuação'}</CardTitle>
           </CardHeader>
           <CardContent>
-            <ScoresPanel />
+            {isAdmin ? (
+              <ScoresPanel />
+            ) : isLoadingMyScore ? (
+              <p className="text-sm text-muted-foreground">Carregando sua pontuação...</p>
+            ) : myScore ? (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between rounded-lg border p-3">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Sua média geral</p>
+                    <p className="text-2xl font-bold">{toScorePoints(Number(myScore.overall_score || 0))} pts</p>
+                  </div>
+                  <Badge variant="outline">{myScore.total_evaluators} avaliador(es)</Badge>
+                </div>
+                <div className="grid gap-2">
+                  {EVAL_CRITERIA.map(({ key, label }) => {
+                    const avg = Number(myScore[`avg_${key}` as keyof typeof myScore] ?? 0);
+                    return (
+                      <div key={key} className="flex items-center justify-between rounded-md border p-2">
+                        <span className="text-sm">{label}</span>
+                        <ScoreBadge score={avg} />
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">Você ainda não recebeu avaliações.</p>
+            )}
           </CardContent>
         </Card>
       )}
