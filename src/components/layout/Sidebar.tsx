@@ -17,7 +17,8 @@ import {
   LogOut,
   ChevronLeft,
   User,
-  X
+  X,
+  Star
 } from 'lucide-react';
 
 interface NavItem {
@@ -37,6 +38,7 @@ const navItems: NavItem[] = [
   { icon: UsersRound, label: 'Equipes', path: '/teams', adminOnly: true },
   { icon: Calendar, label: 'Escalas', path: '/schedules' },
   { icon: ArrowLeftRight, label: 'Substituições', path: '/substitutions' },
+  { icon: Star, label: 'Avaliações', path: '/peer-evaluations' },
   { icon: MessageSquare, label: 'Mensagens', path: '/messages' },
   { icon: BarChart3, label: 'Relatórios', path: '/reports', adminOnly: true },
 ];

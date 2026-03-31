@@ -7,7 +7,8 @@ import { useTeams } from '@/hooks/useTeams';
 import { useChurches } from '@/hooks/useChurches';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Calendar as CalendarIcon, MessageSquare, User, ArrowRight, Music, Clock, MapPin, Users, Tag, Building2, FileText, Guitar } from 'lucide-react';
+import { Calendar as CalendarIcon, MessageSquare, User, ArrowRight, Music, Clock, MapPin, Users, Tag, Building2, FileText, Guitar, Star } from 'lucide-react';
+import { usePeerEvaluationScore, EVAL_CRITERIA } from '@/hooks/usePeerEvaluations';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -22,6 +23,7 @@ export default function MemberDashboard() {
   const { data: messages, isLoading: messagesLoading } = useMessages();
   const { data: teams, isLoading: teamsLoading } = useTeams();
   const { data: churches } = useChurches();
+  const { data: peerScore } = usePeerEvaluationScore(profile?.id ?? '');
 
   // Filtrar próximas escalas do membro
   const today = new Date();
@@ -605,6 +607,53 @@ export default function MemberDashboard() {
               </CardContent>
             </Card>
 
+            {/* Meu Escore de Avaliação */}
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+                <CardTitle className="text-base">Meu Escore</CardTitle>
+                <Star className="w-4 h-4 text-yellow-400" />
+              </CardHeader>
+              <CardContent>
+                {peerScore ? (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-2xl font-bold">
+                        {Number(peerScore.overall_score).toFixed(1)}
+                        <span className="text-sm font-normal text-muted-foreground"> / 5</span>
+                      </span>
+                      <span className="text-xs text-muted-foreground">{peerScore.total_evaluators} avaliador(es)</span>
+                    </div>
+                    <div className="space-y-1">
+                      {EVAL_CRITERIA.map(({ key, label }) => {
+                        const avg = Number(peerScore[`avg_${key}` as keyof typeof peerScore] ?? 0);
+                        return (
+                          <div key={key} className="flex items-center justify-between gap-2">
+                            <span className="text-xs text-muted-foreground truncate flex-1">{label.split(' ')[0]}</span>
+                            <div className="flex gap-0.5">
+                              {[1,2,3,4,5].map(s => (
+                                <Star key={s} className={`w-3 h-3 ${s <= Math.round(avg) ? 'text-yellow-400 fill-yellow-400' : 'text-muted-foreground'}`} />
+                              ))}
+                            </div>
+                            <span className="text-xs w-6 text-right">{avg.toFixed(1)}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <Button variant="outline" size="sm" className="w-full gap-2 mt-2" onClick={() => navigate('/peer-evaluations')}>
+                      <Star className="w-3 h-3" /> Ver avaliações
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="text-center py-2">
+                    <p className="text-sm text-muted-foreground mb-2">Nenhuma avaliação recebida ainda</p>
+                    <Button variant="outline" size="sm" className="w-full gap-2" onClick={() => navigate('/peer-evaluations')}>
+                      <Star className="w-3 h-3" /> Avaliar colegas
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
             {/* Ações Rápidas */}
             <Card>
               <CardHeader>
@@ -626,6 +675,14 @@ export default function MemberDashboard() {
                 >
                   <Users className="w-4 h-4" />
                   Substituições
+                </Button>
+                <Button 
+                  variant="outline" 
+                  className="w-full justify-start gap-2"
+                  onClick={() => navigate('/peer-evaluations')}
+                >
+                  <Star className="w-4 h-4" />
+                  Avaliações
                 </Button>
                 <Button 
                   variant="outline" 

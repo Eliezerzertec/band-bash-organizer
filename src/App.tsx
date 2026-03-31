@@ -20,6 +20,7 @@ import TeamForm from "./pages/TeamForm";
 import Schedules from "./pages/Schedules";
 import MySchedules from "./pages/MySchedules";
 import Substitutions from "./pages/Substitutions";
+import PeerEvaluations from "./pages/PeerEvaluations";
 import Messages from "./pages/Messages";
 import Reports from "./pages/Reports";
 import DetailedReports from "./pages/DetailedReports";
@@ -158,6 +159,12 @@ function AppRoutes() {
       <Route path="/substitutions" element={
         <ProtectedRoute>
           <Substitutions />
+        </ProtectedRoute>
+      } />
+
+      <Route path="/peer-evaluations" element={
+        <ProtectedRoute>
+          <PeerEvaluations />
         </ProtectedRoute>
       } />
       
