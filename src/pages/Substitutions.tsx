@@ -70,9 +70,13 @@ export default function Substitutions() {
   const deleteMutation = useDeleteSubstitutionRequest();
   const createMutation = useCreateSubstitutionRequest();
   const { data: myAssignments = [] } = useMyAssignmentOptions(currentProfile?.id);
-  const { data: eligibleSubstitutes = [] } = useEligibleSubstitutes(selectedAssignmentId || undefined);
+  const {
+    data: eligibleSubstitutes = [],
+    isLoading: eligibleLoading,
+  } = useEligibleSubstitutes(selectedAssignmentId || undefined);
 
   const selectedAssignment = myAssignments.find((assignment) => assignment.id === selectedAssignmentId);
+  const substitutesCount = eligibleSubstitutes.length;
   const normalize = (value: string) =>
     value
       .normalize('NFD')
@@ -185,23 +189,59 @@ export default function Substitutions() {
               </div>
 
               <div>
-                <label className="text-sm font-medium">Substituto (mesma categoria)</label>
+                <label className="text-sm font-medium flex items-center justify-between gap-2">
+                  <span>Substituto (mesma categoria)</span>
+                  {selectedAssignmentId && !eligibleLoading && (
+                    <span className={cn(
+                      'text-xs font-semibold px-2 py-0.5 rounded-full',
+                      substitutesCount > 0
+                        ? 'bg-success/15 text-success'
+                        : 'bg-muted text-muted-foreground'
+                    )}>
+                      {substitutesCount} disponivel{substitutesCount === 1 ? '' : 'eis'}
+                    </span>
+                  )}
+                </label>
                 <Select
                   value={selectedSubstituteId}
                   onValueChange={setSelectedSubstituteId}
-                  disabled={!selectedAssignmentId || eligibleSubstitutes.length === 0}
+                  disabled={!selectedAssignmentId || eligibleLoading || eligibleSubstitutes.length === 0}
                 >
                   <SelectTrigger className="mt-1">
-                    <SelectValue placeholder="Selecione o substituto" />
+                    <SelectValue
+                      placeholder={
+                        !selectedAssignmentId
+                          ? 'Selecione uma escala primeiro'
+                          : eligibleLoading
+                            ? 'Carregando substitutos...'
+                            : eligibleSubstitutes.length === 0
+                              ? 'Nenhum substituto disponivel'
+                              : 'Selecione o substituto'
+                      }
+                    />
                   </SelectTrigger>
                   <SelectContent>
-                    {eligibleSubstitutes.map((candidate) => (
-                      <SelectItem key={candidate.profile_id} value={candidate.profile_id}>
-                        {candidate.profile.name} - {getCandidateInstrumentLabel(candidate)}
-                      </SelectItem>
-                    ))}
+                    {eligibleLoading && (
+                      <div className="px-3 py-2 text-xs text-muted-foreground">Carregando substitutos disponiveis...</div>
+                    )}
+                    {!eligibleLoading && eligibleSubstitutes.length === 0 && (
+                      <div className="px-3 py-2 text-xs text-muted-foreground">
+                        Nenhum substituto disponivel para esta escala.
+                      </div>
+                    )}
+                    {!eligibleLoading &&
+                      eligibleSubstitutes.map((candidate) => (
+                        <SelectItem key={candidate.profile_id} value={candidate.profile_id}>
+                          {candidate.profile.name} - {getCandidateInstrumentLabel(candidate)}
+                        </SelectItem>
+                      ))}
                   </SelectContent>
                 </Select>
+                {selectedAssignmentId && !eligibleLoading && substitutesCount > 0 && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {substitutesCount} substituto{substitutesCount === 1 ? '' : 's'} disponivel{substitutesCount === 1 ? '' : 'eis'} para esta escala.
+                  </p>
+                )}
               </div>
             </div>
 

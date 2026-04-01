@@ -3,6 +3,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import type { PostgrestError } from '@supabase/supabase-js';
 
+export type MemberStatus = 'active' | 'inactive' | 'pending_approval';
+
 export interface Profile {
   id: string;
   user_id: string;
@@ -11,7 +13,7 @@ export interface Profile {
   phone: string | null;
   avatar_url: string | null;
   musical_skills: string[];
-  status: 'active' | 'inactive';
+  status: MemberStatus;
   created_at: string;
   updated_at: string;
 }
@@ -91,6 +93,90 @@ export function useUpdateProfile() {
     },
     onError: (error) => {
       toast({ title: 'Erro ao atualizar perfil', description: error.message, variant: 'destructive' });
+    },
+  });
+}
+
+export function useUpdateMemberStatus() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: async ({ id, status }: { id: string; status: MemberStatus }) => {
+      // Quando ativar membro criado por auto-cadastro, garante vínculo em user_roles
+      // para que as políticas RLS liberem os dados do painel dele.
+      if (status === 'active') {
+        const [{ data: sessionData }, { data: profileData, error: profileError }] = await Promise.all([
+          supabase.auth.getSession(),
+          supabase
+            .from('profiles')
+            .select('user_id')
+            .eq('id', id)
+            .maybeSingle(),
+        ]);
+
+        if (profileError) throw profileError;
+
+        const adminUserId = sessionData.session?.user?.id;
+        const memberUserId = profileData?.user_id;
+
+        if (!memberUserId) {
+          throw new Error('Não foi possível identificar o usuário do membro para ativação.');
+        }
+
+        const { data: existingMemberRoles, error: existingMemberRolesError } = await supabase
+          .from('user_roles')
+          .select('church_id')
+          .eq('user_id', memberUserId)
+          .eq('role', 'member')
+          .limit(1);
+
+        if (existingMemberRolesError) throw existingMemberRolesError;
+
+        // Se já existir vínculo de membro, segue para ativação.
+        if (!existingMemberRoles || existingMemberRoles.length === 0) {
+          if (!adminUserId) {
+            throw new Error('Sessão do administrador não encontrada para vincular o membro à igreja.');
+          }
+
+          const { data: adminRoles, error: adminRolesError } = await supabase
+            .from('user_roles')
+            .select('church_id')
+            .eq('user_id', adminUserId)
+            .eq('role', 'admin')
+            .limit(1);
+
+          if (adminRolesError) throw adminRolesError;
+
+          const churchId = adminRoles?.[0]?.church_id;
+          if (!churchId) {
+            throw new Error('Administrador sem igreja vinculada. Não foi possível ativar o membro.');
+          }
+
+          const { error: roleError } = await supabase
+            .from('user_roles')
+            .upsert(
+              { user_id: memberUserId, church_id: churchId, role: 'member' },
+              { onConflict: 'user_id,church_id' }
+            );
+
+          if (roleError) throw roleError;
+        }
+      }
+
+      const { error } = await supabase
+        .from('profiles')
+        .update({ status } as Record<string, unknown>)
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: (_, { status }) => {
+      queryClient.invalidateQueries({ queryKey: ['profiles'] });
+      const label = status === 'active' ? 'Membro ativado com sucesso!' : 'Membro desativado.';
+      toast({ title: label });
+    },
+    onError: (error) => {
+      toast({ title: 'Erro ao atualizar status', description: error.message, variant: 'destructive' });
     },
   });
 }

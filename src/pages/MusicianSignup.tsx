@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
-import { Music, Eye, EyeOff, Loader2 } from 'lucide-react';
+import { Music, Eye, EyeOff, Loader2, CheckCircle, Clock } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -24,7 +24,6 @@ const musicalSkills = [
 ];
 
 export default function MusicianSignup() {
-  const navigate = useNavigate();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
@@ -32,6 +31,16 @@ export default function MusicianSignup() {
   const [showPassword, setShowPassword] = useState(false);
   const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+
+  const safeSignOut = async () => {
+    const { error } = await supabase.auth.signOut({ scope: 'local' });
+    const isSessionMissing = !!error && (
+      error.message?.includes('Auth session missing') ||
+      error.message?.includes('Session from session_id claim in JWT does not exist')
+    );
+    if (error && !isSessionMissing) throw error;
+  };
 
   const toggleSkill = (skill: string) => {
     setSelectedSkills((prev) =>
@@ -65,15 +74,15 @@ export default function MusicianSignup() {
         throw new Error('Nao foi possivel criar o usuario.');
       }
 
-      const { error: profileError } = await supabase
-        .from('profiles')
+      const { error: profileError } = await (supabase
+        .from('profiles') as ReturnType<typeof supabase.from>)
         .upsert(
           {
             user_id: authData.user.id,
             name,
             email,
             phone: phone || null,
-            status: 'active',
+            status: 'pending_approval',
             musical_skills: selectedSkills,
           },
           { onConflict: 'user_id' }
@@ -83,16 +92,10 @@ export default function MusicianSignup() {
         throw profileError;
       }
 
-      const hasSession = Boolean(authData.session);
+      // Sempre faz sign out para garantir que o membro não entre antes da aprovação
+      await safeSignOut();
 
-      if (hasSession) {
-        toast.success('Cadastro concluido com sucesso!');
-        navigate('/member-dashboard', { replace: true });
-        return;
-      }
-
-      toast.success('Cadastro realizado! Verifique seu email para confirmar a conta.');
-      navigate('/login', { replace: true });
+      setSubmitted(true);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Erro ao concluir cadastro';
       toast.error(message);
@@ -107,7 +110,32 @@ export default function MusicianSignup() {
       <div className="pointer-events-none absolute -bottom-24 left-0 h-80 w-80 rounded-full bg-accent/10 blur-3xl" />
 
       <div className="relative z-10 flex min-h-screen items-center justify-center p-6">
-        <Card className="w-full max-w-2xl border-border/60 bg-card/90 backdrop-blur">
+        {submitted ? (
+          <Card className="w-full max-w-md border-border/60 bg-card/90 backdrop-blur">
+            <CardContent className="p-10 text-center space-y-6">
+              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-amber-500/15">
+                <Clock className="h-8 w-8 text-amber-500" />
+              </div>
+              <div>
+                <h2 className="text-xl font-semibold text-foreground">Cadastro enviado!</h2>
+                <p className="mt-3 text-muted-foreground leading-relaxed">
+                  Seu cadastro foi realizado com sucesso e está <strong>aguardando confirmação do administrador</strong>.
+                </p>
+                <p className="mt-2 text-muted-foreground text-sm">
+                  Após a aprovação, você receberá acesso ao sistema e poderá fazer login normalmente.
+                </p>
+              </div>
+              <div className="flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-400">
+                <CheckCircle className="h-4 w-4 shrink-0" />
+                Entre em contato com o responsável da sua equipe para agilizar a aprovação.
+              </div>
+              <Link to="/login">
+                <Button variant="outline" className="w-full mt-2">Voltar para o login</Button>
+              </Link>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card className="w-full max-w-2xl border-border/60 bg-card/90 backdrop-blur">
           <CardContent className="p-8">
             <div className="text-center">
               <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary/15">
@@ -224,7 +252,8 @@ export default function MusicianSignup() {
               </Link>
             </p>
           </CardContent>
-        </Card>
+          </Card>
+        )}
       </div>
     </div>
   );

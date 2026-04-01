@@ -67,6 +67,37 @@ export default function MemberDashboard() {
     .sort((a, b) => (a.start_time ?? '23:59').localeCompare(b.start_time ?? '23:59'));
 
   const scheduleDates = mySchedules.map(schedule => parseLocalDate(schedule.event_date));
+  const nextUpcomingSchedule = upcomingSchedules[0];
+
+  const quickViewSchedules = selectedDaySchedules.length > 0
+    ? selectedDaySchedules
+    : (nextUpcomingSchedule ? [nextUpcomingSchedule] : []);
+
+  const quickViewTeams = quickViewSchedules
+    .map((schedule) => {
+      const assignment = schedule.schedule_assignments?.find(
+        teamAssignment => teamAssignment.profile_id === profile?.id,
+      );
+      const resolvedTeam = teams?.find(team => team.id === assignment?.team_id)
+        ?? teams?.find(team => team.name === assignment?.team?.name)
+        ?? null;
+
+      return {
+        schedule,
+        assignment,
+        team: resolvedTeam,
+        members: [...(resolvedTeam?.team_members ?? [])].sort((left, right) =>
+          (left.profile?.name ?? '').localeCompare(right.profile?.name ?? '', 'pt-BR', { sensitivity: 'base' }),
+        ),
+      };
+    })
+    .filter((entry, index, entries) => {
+      if (!entry.team) {
+        return index === entries.findIndex(candidate => candidate.schedule.id === entry.schedule.id);
+      }
+
+      return index === entries.findIndex(candidate => candidate.team?.id === entry.team?.id);
+    });
 
   // Equipes do membro
   const myTeams = teams?.filter(team =>
@@ -330,12 +361,77 @@ export default function MemberDashboard() {
             </CardHeader>
             <CardContent className="space-y-4 text-sm text-muted-foreground">
               <div className="rounded-lg border bg-background p-3">
-                <p className="font-medium text-foreground">Próxima agenda</p>
+                <p className="font-medium text-foreground">
+                  {selectedDaySchedules.length > 0 ? 'Agenda selecionada' : 'Próxima agenda'}
+                </p>
                 <p className="mt-1">
-                  {upcomingSchedules[0]
-                    ? `${formatDate(upcomingSchedules[0].event_date)}${upcomingSchedules[0].start_time ? ` às ${formatTime(upcomingSchedules[0].start_time)}` : ''}`
+                  {quickViewSchedules[0]
+                    ? `${formatDate(quickViewSchedules[0].event_date)}${quickViewSchedules[0].start_time ? ` às ${formatTime(quickViewSchedules[0].start_time)}` : ''}`
                     : 'Nenhuma escala futura cadastrada no momento.'}
                 </p>
+              </div>
+              <div className="rounded-lg border bg-background p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="font-medium text-foreground">
+                    {selectedDaySchedules.length > 0 ? 'Membros da agenda selecionada' : 'Equipe da próxima agenda'}
+                  </p>
+                  {quickViewTeams.length > 0 && (
+                    <Badge variant="secondary" className="text-xs">
+                      {quickViewTeams.length} equipe{quickViewTeams.length !== 1 ? 's' : ''}
+                    </Badge>
+                  )}
+                </div>
+
+                {quickViewTeams.some((entry) => entry.members.length > 0) ? (
+                  <div className="mt-3 space-y-3">
+                    {quickViewTeams.map((entry) => (
+                      <div key={entry.team?.id ?? entry.schedule.id} className="space-y-2 rounded-lg border border-border/60 p-3">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="font-medium text-foreground">
+                            {entry.team?.name || entry.assignment?.team?.name || entry.schedule.title || entry.schedule.event_name}
+                          </p>
+                          {entry.assignment?.role_assigned && (
+                            <Badge variant="outline" className="text-[11px]">
+                              {entry.assignment.role_assigned}
+                            </Badge>
+                          )}
+                        </div>
+
+                        {entry.members.length > 0 ? (
+                          <div className="space-y-2">
+                            {entry.members.map((member) => (
+                              <div key={member.id} className="flex items-center justify-between gap-3 rounded-md border border-border/60 px-3 py-2">
+                                <div className="min-w-0">
+                                  <p className="truncate font-medium text-foreground">
+                                    {member.profile?.name || 'Membro sem nome'}
+                                  </p>
+                                  {member.profile?.musical_skills?.length ? (
+                                    <p className="truncate text-xs text-muted-foreground">
+                                      {member.profile.musical_skills.join(', ')}
+                                    </p>
+                                  ) : null}
+                                </div>
+                                <div className="shrink-0 text-right text-xs text-muted-foreground">
+                                  {member.role_in_team || 'Sem função'}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-sm text-muted-foreground">
+                            Não foi possível identificar os integrantes desta equipe.
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="mt-2 text-sm">
+                    {quickViewSchedules[0]
+                      ? 'Ainda não foi possível identificar os integrantes da agenda selecionada.'
+                      : 'Nenhuma agenda futura cadastrada no momento.'}
+                  </p>
+                )}
               </div>
               <div className="rounded-lg border bg-background p-3">
                 <p className="font-medium text-foreground">Como ler o calendário</p>

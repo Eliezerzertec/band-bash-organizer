@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -14,20 +15,49 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
+  const safeSignOut = async () => {
+    const { error } = await supabase.auth.signOut({ scope: 'local' });
+    const isSessionMissing = !!error && (
+      error.message?.includes('Auth session missing') ||
+      error.message?.includes('Session from session_id claim in JWT does not exist')
+    );
+    if (error && !isSessionMissing) throw error;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     try {
       await login(email, password);
+
+      // Verifica se o membro está pendente de aprovação
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('status')
+          .eq('user_id', session.user.id)
+          .maybeSingle();
+        const rawStatus = (profile as { status?: string })?.status;
+        if (rawStatus === 'pending_approval') {
+          await safeSignOut();
+          toast.error('Seu cadastro ainda está aguardando confirmação do administrador.');
+          return;
+        }
+        if (rawStatus === 'inactive') {
+          await safeSignOut();
+          toast.error('Sua conta está inativa. Entre em contato com o administrador.');
+          return;
+        }
+      }
+
       toast.success('Login realizado com sucesso!');
-      // Redireciona para "/" que encaminha pelo role (admin → /dashboard, member → /member-dashboard)
       setTimeout(() => {
         navigate('/', { replace: true });
       }, 100);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Email ou senha inválidos';
       
-      // Mensagens de erro específicas
       if (errorMessage.includes('Email not confirmed')) {
         toast.error('Seu email ainda não foi confirmado. Verifique sua caixa de entrada.');
       } else if (errorMessage.includes('Invalid login credentials')) {

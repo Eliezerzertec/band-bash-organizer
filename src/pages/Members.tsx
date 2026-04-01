@@ -9,6 +9,9 @@ import {
   Trash2,
   Users,
   Calendar,
+  CheckCircle,
+  XCircle,
+  Clock,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
@@ -34,7 +37,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { useProfiles, Profile, useDeleteMember } from '@/hooks/useProfiles';
+import { useProfiles, Profile, useDeleteMember, useUpdateMemberStatus } from '@/hooks/useProfiles';
 import { useAuth } from '@/contexts/AuthContext';
 import { Skeleton } from '@/components/ui/skeleton';
 import { MemberFormDialog } from '@/components/forms/MemberFormDialog';
@@ -53,6 +56,7 @@ export default function Members() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [memberToDelete, setMemberToDelete] = useState<Profile | null>(null);
   const { data: members, isLoading, error } = useProfiles();
+  const updateStatus = useUpdateMemberStatus();
   const deleteProfile = useDeleteMember();
 
   const filteredMembers = (members || []).filter(member =>
@@ -213,10 +217,17 @@ export default function Members() {
                     </TableCell>
                     <TableCell>
                       <span className={cn(
-                        "px-2 py-1 rounded-full text-xs font-medium",
-                        member.status === 'active' ? "bg-success-light text-success" : "bg-muted text-muted-foreground"
+                        "px-2 py-1 rounded-full text-xs font-medium inline-flex items-center gap-1",
+                        member.status === 'active' ? "bg-success-light text-success" :
+                        member.status === 'pending_approval' ? "bg-amber-500/15 text-amber-600 dark:text-amber-400" :
+                        "bg-muted text-muted-foreground"
                       )}>
-                        {member.status === 'active' ? 'Ativo' : 'Inativo'}
+                        {member.status === 'active' && <CheckCircle className="w-3 h-3" />}
+                        {member.status === 'pending_approval' && <Clock className="w-3 h-3" />}
+                        {member.status === 'inactive' && <XCircle className="w-3 h-3" />}
+                        {member.status === 'active' ? 'Ativo' :
+                         member.status === 'pending_approval' ? 'Aguardando aprovação' :
+                         'Inativo'}
                       </span>
                     </TableCell>
                     <TableCell className="text-right">
@@ -235,6 +246,33 @@ export default function Members() {
                             <Calendar className="w-4 h-4" />
                             Ver escalas do membro
                           </DropdownMenuItem>
+                          {(member.status === 'pending_approval' || member.status === 'inactive') && (
+                            <DropdownMenuItem
+                              className="gap-2 text-green-600 focus:text-green-600"
+                              onClick={() => updateStatus.mutate({ id: member.id, status: 'active' })}
+                            >
+                              <CheckCircle className="w-4 h-4" />
+                              {member.status === 'pending_approval' ? 'Aprovar e ativar' : 'Ativar'}
+                            </DropdownMenuItem>
+                          )}
+                          {member.status === 'pending_approval' && (
+                            <DropdownMenuItem
+                              className="gap-2 text-destructive focus:text-destructive"
+                              onClick={() => updateStatus.mutate({ id: member.id, status: 'inactive' })}
+                            >
+                              <XCircle className="w-4 h-4" />
+                              Rejeitar cadastro
+                            </DropdownMenuItem>
+                          )}
+                          {member.status === 'active' && (
+                            <DropdownMenuItem
+                              className="gap-2 text-amber-600 focus:text-amber-600"
+                              onClick={() => updateStatus.mutate({ id: member.id, status: 'inactive' })}
+                            >
+                              <XCircle className="w-4 h-4" />
+                              Desativar
+                            </DropdownMenuItem>
+                          )}
                           <DropdownMenuItem 
                             className="gap-2 text-destructive focus:text-destructive"
                             onClick={() => handleDeleteClick(member)}

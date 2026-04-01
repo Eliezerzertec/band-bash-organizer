@@ -77,9 +77,13 @@ export function useMarkMessageAsRead() {
       if (error) throw error;
       return id;
     },
-    onSuccess: () => {
-      // Invalidar ambas as queries para atualizar lista e contador
-      queryClient.invalidateQueries({ queryKey: ['messages'] });
+    onSuccess: (id) => {
+      // Atualiza localmente para evitar que a mensagem "desapareca" da lista apos leitura.
+      queryClient.setQueryData<Message[]>(['messages'], (old) => {
+        if (!old) return old;
+        const now = new Date().toISOString();
+        return old.map((msg) => (msg.id === id ? { ...msg, read_at: msg.read_at ?? now } : msg));
+      });
       queryClient.invalidateQueries({ queryKey: ['messages', 'unread_count'] });
       toast({ title: 'Mensagem marcada como lida' });
     },

@@ -43,6 +43,7 @@ export interface EligibleSubstitute {
     name: string;
     avatar_url: string | null;
     musical_skills: string[] | null;
+    status?: 'active' | 'inactive' | 'pending_approval';
   };
 }
 
@@ -227,7 +228,7 @@ export function useEligibleSubstitutes(assignmentId?: string) {
 
       const { data: assignment, error: assignmentError } = await supabase
         .from('schedule_assignments')
-        .select('id, team_id, schedule_id, role_assigned, profile_id, schedule:schedules!inner(event_date)')
+        .select('id, team_id, schedule_id, role_assigned, profile_id')
         .eq('id', assignmentId)
         .maybeSingle();
 
@@ -253,33 +254,58 @@ export function useEligibleSubstitutes(assignmentId?: string) {
         );
       }
 
-      const targetDate = assignment.schedule?.event_date;
+      let targetDate: string | null = null;
+      if (assignment.schedule_id) {
+        const { data: scheduleRow, error: scheduleError } = await supabase
+          .from('schedules')
+          .select('event_date')
+          .eq('id', assignment.schedule_id)
+          .maybeSingle();
+
+        if (scheduleError) throw scheduleError;
+        targetDate = scheduleRow?.event_date ?? null;
+      }
+
       if (targetDate) {
-        const { data: sameDateAssignments, error: sameDateError } = await supabase
-          .from('schedule_assignments')
-          .select('profile_id, schedule:schedules!inner(event_date)')
-          .eq('schedule.event_date', targetDate)
-          .neq('id', assignment.id);
+        const { data: schedulesOnSameDate, error: schedulesOnSameDateError } = await supabase
+          .from('schedules')
+          .select('id')
+          .eq('event_date', targetDate);
 
-        if (sameDateError) throw sameDateError;
+        if (schedulesOnSameDateError) throw schedulesOnSameDateError;
 
-        sameDateProfileIds = new Set(
-          (sameDateAssignments || [])
-            .map((row) => row.profile_id)
-            .filter((profileId): profileId is string => !!profileId)
-        );
+        const scheduleIdsOnSameDate = (schedulesOnSameDate || []).map((row) => row.id);
+
+        if (scheduleIdsOnSameDate.length > 0) {
+          const { data: sameDateAssignments, error: sameDateError } = await supabase
+            .from('schedule_assignments')
+            .select('profile_id')
+            .in('schedule_id', scheduleIdsOnSameDate)
+            .neq('id', assignment.id);
+
+          if (sameDateError) throw sameDateError;
+
+          sameDateProfileIds = new Set(
+            (sameDateAssignments || [])
+              .map((row) => row.profile_id)
+              .filter((profileId): profileId is string => !!profileId)
+          );
+        }
       }
 
       const { data: members, error: membersError } = await supabase
         .from('team_members')
-        .select('profile_id, role_in_team, profile:profiles(id, name, avatar_url, musical_skills)')
+        .select('profile_id, role_in_team, profile:profiles(id, name, avatar_url, musical_skills, status)')
         .eq('team_id', assignment.team_id)
         .neq('profile_id', assignment.profile_id);
 
       if (membersError) throw membersError;
 
       const memberList = ((members || []) as EligibleSubstitute[]).filter(
-        (member) => !assignedProfileIds.has(member.profile_id) && !sameDateProfileIds.has(member.profile_id)
+        (member) =>
+          member.profile?.status === 'active' &&
+          !assignedProfileIds.has(member.profile_id) &&
+          !sameDateProfileIds.has(member.profile_id)
       );
       const normalize = (value: string) =>
         value
@@ -303,13 +329,24 @@ export function useEligibleSubstitutes(assignmentId?: string) {
       }
 
       if (!requestedRole) {
-        return [] as EligibleSubstitute[];
+        return memberList.sort((a, b) =>
+          (a.profile.name || '').localeCompare(b.profile.name || '', 'pt-BR', {
+            sensitivity: 'base',
+          })
+        );
       }
 
       const sameCategory = memberList.filter((member) => {
         const teamRole = member.role_in_team ? normalize(member.role_in_team) : null;
         const skills = (member.profile.musical_skills || []).map((s) => normalize(s));
-        return teamRole === requestedRole || skills.includes(requestedRole);
+        const roleMatch =
+          teamRole === requestedRole ||
+          (teamRole ? teamRole.includes(requestedRole) || requestedRole.includes(teamRole) : false);
+        const skillMatch =
+          skills.includes(requestedRole) ||
+          skills.some((skill) => skill.includes(requestedRole) || requestedRole.includes(skill));
+
+        return roleMatch || skillMatch;
       });
 
       return sameCategory.sort((a, b) =>

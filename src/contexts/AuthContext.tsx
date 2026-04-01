@@ -111,8 +111,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = async () => {
     try {
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
+      const { error } = await supabase.auth.signOut({ scope: 'local' });
+      const isSessionMissing = !!error && (
+        error.message?.includes('Auth session missing') ||
+        error.message?.includes('Session from session_id claim in JWT does not exist')
+      );
+      if (error && !isSessionMissing) throw error;
       
       // Limpar todas as queries do cache
       queryClient.clear();

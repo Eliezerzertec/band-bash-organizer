@@ -166,9 +166,44 @@ export default function Schedules() {
               <div key={schedule.id} className="card-elevated p-4 hover:shadow-md transition-shadow">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
-                    <h3 className="font-semibold text-lg text-foreground mb-1">
-                      {schedule.title}
-                    </h3>
+                    <div className="flex flex-wrap items-center gap-2 mb-1">
+                      <h3 className="font-semibold text-lg text-foreground">
+                        {schedule.title}
+                      </h3>
+                      {isAdmin && (
+                        (() => {
+                          const teamNames = Array.from(
+                            new Set(
+                              (schedule.schedule_assignments || [])
+                                .map((assignment) => assignment.team?.name)
+                                .filter((name): name is string => Boolean(name))
+                            )
+                          );
+
+                          if (teamNames.length === 0) {
+                            return (
+                              <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                                Equipe: não definida
+                              </span>
+                            );
+                          }
+
+                          if (teamNames.length === 1) {
+                            return (
+                              <span className="inline-flex items-center rounded-full bg-emerald-500/15 px-2 py-0.5 text-xs font-medium text-emerald-600 dark:text-emerald-400">
+                                Equipe: {teamNames[0]}
+                              </span>
+                            );
+                          }
+
+                          return (
+                            <span className="inline-flex items-center rounded-full bg-amber-500/15 px-2 py-0.5 text-xs font-medium text-amber-600 dark:text-amber-400">
+                              Equipes: {teamNames.join(', ')}
+                            </span>
+                          );
+                        })()
+                      )}
+                    </div>
                     {schedule.description && (
                       <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
                         {schedule.description}

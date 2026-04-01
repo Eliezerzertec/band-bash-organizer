@@ -26,13 +26,11 @@ import {
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Loader2, Calendar, Clock, MapPin, FileText, Music, X } from 'lucide-react';
+import { Loader2, Calendar, Clock, MapPin, FileText, Music } from 'lucide-react';
 import { Schedule, useCreateSchedule, useUpdateSchedule, useAddScheduleAssignment, useRemoveScheduleAssignment } from '@/hooks/useSchedules';
 import { useChurches } from '@/hooks/useChurches';
 import { useMinistries } from '@/hooks/useMinistries';
 import { useTeams, type TeamMember } from '@/hooks/useTeams';
-import { Label } from '@/components/ui/label';
 
 const scheduleSchema = z.object({
   title: z.string().trim().min(1, 'Título é obrigatório').max(100, 'Máximo 100 caracteres'),
@@ -93,7 +91,7 @@ export function ScheduleFormDialog({ open, onOpenChange, schedule }: ScheduleFor
   const { data: teams } = useTeams();
   const isEditing = !!schedule;
 
-  const [selectedTeams, setSelectedTeams] = useState<string[]>([]);
+  const [selectedTeamId, setSelectedTeamId] = useState<string>('');
 
   const form = useForm<ScheduleFormData>({
     resolver: zodResolver(scheduleSchema),
@@ -124,11 +122,8 @@ export function ScheduleFormDialog({ open, onOpenChange, schedule }: ScheduleFor
         });
         
         const assignments = schedule.schedule_assignments || [];
-
-        const assignmentTeamIds = Array.from(
-          new Set(assignments.map((assignment) => assignment.team_id).filter((teamId): teamId is string => !!teamId))
-        );
-        setSelectedTeams(assignmentTeamIds);
+        const assignmentTeamId = assignments.find((assignment) => assignment.team_id)?.team_id || '';
+        setSelectedTeamId(assignmentTeamId);
       } else {
         const today = new Date().toISOString().split('T')[0];
         const defaultChurchId = churches && churches.length > 0 ? churches[0].id : '';
@@ -142,15 +137,15 @@ export function ScheduleFormDialog({ open, onOpenChange, schedule }: ScheduleFor
           church_id: defaultChurchId,
           ministry_id: '',
         });
-        setSelectedTeams([]);
+        setSelectedTeamId('');
       }
     }
   }, [schedule, open, form, churches]);
 
   const onSubmit = async (data: ScheduleFormData) => {
     try {
-      if (selectedTeams.length === 0) {
-        alert('Selecione pelo menos uma equipe para a escala');
+      if (!selectedTeamId) {
+        alert('Selecione uma equipe para a escala');
         return;
       }
 
@@ -182,26 +177,23 @@ export function ScheduleFormDialog({ open, onOpenChange, schedule }: ScheduleFor
         scheduleId = result.id;
       }
 
-      // Adicionar novos assignments para cada equipe selecionada
-      for (const teamId of selectedTeams) {
-        const team = teams?.find(t => t.id === teamId);
-        if (team) {
-          // Adicionar cada membro da equipe
-          const teamMembers = team.team_members || [];
-          for (const member of teamMembers as TeamMember[]) {
-            await addAssignment.mutateAsync({
-              schedule_id: scheduleId,
-              profile_id: member.profile_id,
-              team_id: teamId,
-              role_assigned: member.role_in_team || null,
-            });
-          }
+      // Adicionar assignments da equipe selecionada
+      const selectedTeam = teams?.find((team) => team.id === selectedTeamId);
+      if (selectedTeam) {
+        const teamMembers = selectedTeam.team_members || [];
+        for (const member of teamMembers as TeamMember[]) {
+          await addAssignment.mutateAsync({
+            schedule_id: scheduleId,
+            profile_id: member.profile_id,
+            team_id: selectedTeamId,
+            role_assigned: member.role_in_team || null,
+          });
         }
       }
 
       onOpenChange(false);
       form.reset();
-      setSelectedTeams([]);
+      setSelectedTeamId('');
     } catch (error) {
       console.error('Erro ao salvar escala:', error);
       alert('Erro ao salvar escala');
@@ -390,63 +382,24 @@ export function ScheduleFormDialog({ open, onOpenChange, schedule }: ScheduleFor
 
             {/* Seleção de Equipes */}
             <div className="space-y-4">
-              <h3 className="font-semibold text-sm">Equipes da Escala</h3>
+              <h3 className="font-semibold text-sm">Equipe da Escala</h3>
 
               {/* Equipes Disponíveis */}
               {teams && teams.length > 0 && (
-                <div className="border rounded-lg p-4 bg-muted/30 max-h-40 overflow-y-auto">
-                  <p className="text-xs font-medium mb-3 text-muted-foreground">Selecionar equipes:</p>
-                  <div className="space-y-2">
-                    {teams.map((team) => {
-                      const isSelected = selectedTeams.includes(team.id);
-                      return (
-                        <div key={team.id} className="flex items-center gap-2">
-                          <Checkbox
-                            id={`team-${team.id}`}
-                            checked={isSelected}
-                            onCheckedChange={() => {
-                              if (isSelected) {
-                                setSelectedTeams((prev) => prev.filter((id) => id !== team.id));
-                              } else {
-                                setSelectedTeams((prev) => [...prev, team.id]);
-                              }
-                            }}
-                          />
-                          <Label htmlFor={`team-${team.id}`} className="text-sm cursor-pointer flex-1">
-                            {team.name}
-                          </Label>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* Equipes Selecionadas */}
-              {selectedTeams.length > 0 && (
-                <div className="border rounded-lg p-4 space-y-3">
-                  <p className="text-xs font-medium text-muted-foreground mb-3">
-                    Equipes selecionadas ({selectedTeams.length}):
-                  </p>
-                  <div className="space-y-2">
-                    {selectedTeams.map((teamId) => {
-                      const team = teams?.find((t) => t.id === teamId);
-                      return (
-                        <div key={teamId} className="flex items-center gap-2 bg-muted/50 p-2 rounded">
-                          <div className="flex-1">
-                            <p className="text-sm font-medium">{team?.name}</p>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => setSelectedTeams((prev) => prev.filter((id) => id !== teamId))}
-                            className="text-destructive hover:bg-destructive/10 p-1 rounded"
-                          >
-                            <X className="w-4 h-4" />
-                          </button>
-                        </div>
-                      );
-                    })}
-                  </div>
+                <div className="border rounded-lg p-4 bg-muted/30">
+                  <p className="text-xs font-medium mb-3 text-muted-foreground">Selecione uma equipe:</p>
+                  <Select onValueChange={setSelectedTeamId} value={selectedTeamId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Escolha a equipe escalada" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {teams.map((team) => (
+                        <SelectItem key={team.id} value={team.id}>
+                          {team.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               )}
             </div>
