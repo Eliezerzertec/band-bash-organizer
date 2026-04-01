@@ -51,8 +51,7 @@ export default function MemberDashboard() {
 
   const upcomingSchedules = mySchedules
     .filter(s => parseLocalDate(s.event_date) >= today)
-    .sort((a, b) => parseLocalDate(a.event_date).getTime() - parseLocalDate(b.event_date).getTime())
-    .slice(0, 5);
+    .sort((a, b) => parseLocalDate(a.event_date).getTime() - parseLocalDate(b.event_date).getTime());
 
   const [selectedDate, setSelectedDate] = useState<Date>(today);
 

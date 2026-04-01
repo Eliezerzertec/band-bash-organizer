@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Star, User, Award, ChevronDown, ChevronUp } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Star, User, Award, ChevronDown, ChevronUp, ArrowLeft } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -104,15 +105,32 @@ function EvalForm({
         Avalie <strong>{memberName}</strong> de 1 a 5 estrelas em cada critério:
       </p>
 
-      {EVAL_CRITERIA.map(({ key, label }) => (
-        <div key={key} className="flex items-center justify-between gap-4">
-          <span className="text-sm flex-1">{label}</span>
-          <StarRating
-            value={ratings[key]}
-            onChange={(v) => setRatings((prev) => ({ ...prev, [key]: v }))}
-          />
-        </div>
-      ))}
+      {(() => {
+        let lastTopic = '';
+        return EVAL_CRITERIA.map(({ key, label, topic, description }) => {
+          const showHeader = topic !== lastTopic;
+          lastTopic = topic;
+          return (
+            <div key={key}>
+              {showHeader && (
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mt-4 mb-2">{topic}</p>
+              )}
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex-1 min-w-0">
+                  <span className="text-sm font-medium">{label}</span>
+                  {description && (
+                    <p className="text-xs text-muted-foreground leading-tight mt-0.5">{description}</p>
+                  )}
+                </div>
+                <StarRating
+                  value={ratings[key]}
+                  onChange={(v) => setRatings((prev) => ({ ...prev, [key]: v }))}
+                />
+              </div>
+            </div>
+          );
+        });
+      })()}
 
       <Separator />
 
@@ -231,11 +249,18 @@ export default function PeerEvaluations() {
   const isAdmin = user?.role === 'admin';
   const { data: myScore, isLoading: isLoadingMyScore } = usePeerEvaluationScore(currentProfile?.id || '');
   const [tab, setTab] = useState<'evaluate' | 'scores'>('evaluate');
+  const navigate = useNavigate();
 
   if (!user) return null;
 
   return (
     <div className="p-6 space-y-6 max-w-3xl mx-auto">
+      {/* Botão voltar */}
+      <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="gap-2 -ml-2">
+        <ArrowLeft className="w-4 h-4" />
+        Voltar
+      </Button>
+
       {/* Cabeçalho */}
       <div className="flex items-center gap-3">
         <div className="p-2 rounded-lg bg-primary/10">

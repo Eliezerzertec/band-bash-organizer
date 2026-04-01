@@ -9,23 +9,28 @@ import { useCurrentProfile } from '@/hooks/useProfiles';
 const db = supabase as unknown as any;
 
 export const EVAL_CRITERIA = [
-  { key: 'relationship_with_god', label: 'Relacionamento com Deus' },
-  { key: 'character_integrity', label: 'Caráter e integridade' },
-  { key: 'leadership_submission', label: 'Submissão à liderança' },
-  { key: 'musical_skill', label: 'Habilidade Musical' },
-  { key: 'pitch_technical_precision_metronome', label: 'Afinação / precisão técnica / metrônomo' },
-  { key: 'instrument_voice_knowledge', label: 'Conhecimento do instrumento/voz' },
-  { key: 'musical_development', label: 'Musicalidade (desenvolvimento musical na banda)' },
-  { key: 'punctuality_frequency', label: 'Pontualidade e frequência' },
-  { key: 'preparation_before_rehearsal', label: 'Preparação prévia (estuda antes do ensaio)' },
-  { key: 'availability_for_schedule', label: 'Disponibilidade na escala' },
-  { key: 'teamwork', label: 'Trabalho em Equipe' },
-  { key: 'listening_sensitivity', label: 'Escuta e sensibilidade ao conjunto' },
-  { key: 'respectful_communication', label: 'Comunicação respeitosa' },
-  { key: 'adaptability', label: 'Adaptabilidade a mudanças' },
-  { key: 'worship_posture_focus', label: 'Postura e foco no culto' },
-  { key: 'genuine_expression', label: 'Expressão genuína' },
-  { key: 'worship_leader_sensitivity', label: 'Sensibilidade ao líder de louvor' },
+  // ── Espiritualidade e Caráter
+  { key: 'relationship_with_god',          topic: 'Espiritualidade e Caráter', label: 'Relacionamento com Deus',              description: 'Vida devocional, oração e busca pessoal por Deus' },
+  { key: 'character_integrity',            topic: 'Espiritualidade e Caráter', label: 'Caráter e integridade',               description: 'Honestidade, lealdade e conduta fora do ministério' },
+  { key: 'leadership_submission',          topic: 'Espiritualidade e Caráter', label: 'Submissão à liderança',               description: 'Respeito às orientações da liderança' },
+  // ── Habilidade Musical
+  { key: 'musical_skill',                  topic: 'Habilidade Musical',        label: 'Habilidade Musical',                 description: 'Domínio técnico do instrumento ou voz' },
+  { key: 'pitch_technical_precision_metronome', topic: 'Habilidade Musical',   label: 'Afinação / Precisão técnica / Metrônomo', description: 'Mantém afinação, ritmo e precisão durante a execução' },
+  { key: 'instrument_voice_knowledge',     topic: 'Habilidade Musical',        label: 'Conhecimento do instrumento/voz',     description: 'Domínio teórico e prático do instrumento ou técnica vocal' },
+  { key: 'musical_development',            topic: 'Habilidade Musical',        label: 'Musicalidade',                       description: 'Desenvolvimento musical dentro da banda' },
+  // ── Comprometimento
+  { key: 'punctuality_frequency',          topic: 'Comprometimento',           label: 'Pontualidade e frequência',          description: 'Chega no horário e mantém presença regular nos ensaios e cultos' },
+  { key: 'preparation_before_rehearsal',   topic: 'Comprometimento',           label: 'Preparação prévia',                  description: 'Estuda e pratica as músicas antes do ensaio' },
+  { key: 'availability_for_schedule',      topic: 'Comprometimento',           label: 'Disponibilidade na escala',          description: 'Aceita e cumpre os compromissos da escala' },
+  // ── Trabalho em Equipe
+  { key: 'teamwork',                       topic: 'Trabalho em Equipe',        label: 'Trabalho em Equipe',                 description: 'Colaboração e parceria com os demais membros' },
+  { key: 'listening_sensitivity',          topic: 'Trabalho em Equipe',        label: 'Escuta e sensibilidade ao conjunto', description: 'Ouve os outros músicos e se adapta ao som coletivo' },
+  { key: 'respectful_communication',       topic: 'Trabalho em Equipe',        label: 'Comunicação respeitosa',             description: 'Expressa opiniões com respeito e clareza' },
+  { key: 'adaptability',                   topic: 'Trabalho em Equipe',        label: 'Adaptabilidade a mudanças',          description: 'Lida bem com mudanças de repertório, arranjo ou dinâmica' },
+  // ── Adoração
+  { key: 'worship_posture_focus',          topic: 'Adoração',                  label: 'Postura e foco no culto',            description: 'Mantém postura reverente e focada durante o culto' },
+  { key: 'genuine_expression',             topic: 'Adoração',                  label: 'Expressão genuína',                  description: 'Adora com autenticidade, sem performance artificial' },
+  { key: 'worship_leader_sensitivity',     topic: 'Adoração',                  label: 'Sensibilidade ao líder de louvor',   description: 'Atento às direções e sinais do líder durante o culto' },
 ] as const;
 
 export type EvalCriterionKey = typeof EVAL_CRITERIA[number]['key'];

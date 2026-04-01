@@ -103,7 +103,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                 <Music className="w-6 h-6 text-sidebar-primary-foreground" />
               </div>
               <div>
-                <h1 className="font-bold text-sidebar-foreground text-lg tracking-tight">Louvor</h1>
+                <h1 className="font-bold text-sidebar-foreground text-lg tracking-tight">Vale Music Lavras</h1>
                 <p className="text-xs text-sidebar-foreground/50">Gestão de Ministério</p>
               </div>
             </div>

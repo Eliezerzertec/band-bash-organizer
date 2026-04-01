@@ -464,9 +464,25 @@ export function useDeleteSubstitutionRequest() {
         .eq('status', 'pending')
         .select('id')
         .maybeSingle();
-      
-      if (error) throw error;
-      if (!data) {
+
+      if (data) return;
+
+      const { data: updated, error: updateError } = await supabase
+        .from('substitution_requests')
+        .update({
+          status: 'rejected',
+          response_message: 'Solicitação cancelada pelo solicitante.',
+        })
+        .eq('id', id)
+        .eq('status', 'pending')
+        .select('id')
+        .maybeSingle();
+
+      if (updateError) {
+        throw error || updateError;
+      }
+
+      if (!updated) {
         throw new Error('Apenas pedidos pendentes podem ser cancelados.');
       }
     },
