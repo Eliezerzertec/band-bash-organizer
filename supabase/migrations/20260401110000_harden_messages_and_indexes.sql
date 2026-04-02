@@ -45,6 +45,13 @@ GRANT EXECUTE ON FUNCTION public.mark_message_as_read(UUID) TO authenticated;
 -- 2) Restringe UPDATE direto em mensagens (forca uso da RPC)
 DROP POLICY IF EXISTS "Users can update message read status" ON public.messages;
 
+-- 2.1) Garante que apenas admins da igreja possam apagar mensagens
+DROP POLICY IF EXISTS "Admins can delete messages" ON public.messages;
+CREATE POLICY "Admins can delete messages"
+  ON public.messages FOR DELETE
+  TO authenticated
+  USING (public.is_church_admin(church_id));
+
 -- 3) Indices para queries de inbox e contador de nao lidas
 CREATE INDEX IF NOT EXISTS idx_messages_unread_recipient_created
   ON public.messages (recipient_id, created_at DESC)

@@ -20,6 +20,7 @@ import {
   X,
   Star
 } from 'lucide-react';
+import { ValeLogoIcon } from '@/components/ui/ValeLogoIcon';
 
 interface NavItem {
   icon: React.ComponentType<{ className?: string }>;
@@ -100,7 +101,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
           {!effectiveCollapsed && (
             <div className="flex items-center gap-3">
               <div className="w-11 h-11 rounded-2xl bg-sidebar-primary flex items-center justify-center shadow-lg">
-                <Music className="w-6 h-6 text-sidebar-primary-foreground" />
+                <ValeLogoIcon className="w-7 h-7 text-sidebar-primary-foreground" />
               </div>
               <div>
                 <h1 className="font-bold text-sidebar-foreground text-lg tracking-tight">Vale Music Lavras</h1>
@@ -110,7 +111,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
           )}
           {effectiveCollapsed && !isMobile && (
             <div className="w-11 h-11 rounded-2xl bg-sidebar-primary flex items-center justify-center mx-auto shadow-lg">
-              <Music className="w-6 h-6 text-sidebar-primary-foreground" />
+              <ValeLogoIcon className="w-7 h-7 text-sidebar-primary-foreground" />
             </div>
           )}
           

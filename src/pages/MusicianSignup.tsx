@@ -17,6 +17,7 @@ import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useSignupMinistries } from '@/hooks/useMinistries';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
+import { ValeLogoIcon } from '@/components/ui/ValeLogoIcon';
 
 const musicalSkills = [
   'Voz',
@@ -179,11 +180,7 @@ export default function MusicianSignup() {
           <CardContent className="p-8">
             <div className="text-center">
               <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl border border-border/60 bg-background p-2 shadow-sm">
-                <img
-                  src="/logo%20valechurchPreto.png"
-                  alt="Vale Music Lavras"
-                  className="h-full w-full object-contain"
-                />
+                <ValeLogoIcon className="h-full w-full text-foreground" />
               </div>
               <h1 className="text-2xl font-semibold text-foreground">Cadastro de Músicos</h1>
               <p className="mt-2 text-muted-foreground">

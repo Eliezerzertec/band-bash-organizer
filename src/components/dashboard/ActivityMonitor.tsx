@@ -1,5 +1,7 @@
+import { useMemo } from 'react';
 import { TrendingUp, TrendingDown, Activity } from 'lucide-react';
 import { Profile } from '@/hooks/useProfiles';
+import { useSchedules, Schedule } from '@/hooks/useSchedules';
 
 interface ActivityLevel {
   status: 'none' | 'ideal' | 'moderate' | 'high';
@@ -11,31 +13,22 @@ interface ActivityLevel {
   schedulesThisMonth: number;
 }
 
-// Mock data: escalas por mês por membro
-// TODO: Integrar com dados reais do banco de dados
-const mockMemberSchedules: Record<string, number> = {
-  'member-1': 1,    // Ideal
-  'member-2': 0,    // Baixo
-  'member-3': 2,    // Alto
-  'member-4': 1,    // Ideal
-  'member-5': 3,    // Alto
-};
-
-// Calcula escalas do mês atual para um membro
-// TODO: Implementar com dados reais do banco
-const getSchedulesThisMonth = (memberId: string): number => {
-  return mockMemberSchedules[memberId] || Math.floor(Math.random() * 4);
-};
+// Calcula escalas do mês atual para um membro a partir dos dados reais
+function computeSchedulesThisMonth(schedules: Schedule[] | undefined, memberId: string): number {
+  if (!schedules) return 0;
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth(); // 0-based
+  return schedules.filter(schedule => {
+    const [y, m] = schedule.event_date.split('T')[0].split('-').map(Number);
+    return y === year && m - 1 === month &&
+      schedule.schedule_assignments?.some(sa => sa.profile_id === memberId);
+  }).length;
+}
 
 // Determina o nível de atividade baseado em escalas por mês
-// Critérios:
-// 0 escalas = azul
-// 1 escala = verde
-// 2-3 escalas = laranja
-// >3 escalas = vermelho
-const getActivityLevel = (member: Profile): ActivityLevel => {
-  const schedulesThisMonth = getSchedulesThisMonth(member.id);
-
+// 0 escalas = azul | 1 escala = verde | 2-3 escalas = laranja | >3 escalas = vermelho
+const getActivityLevel = (schedulesThisMonth: number): ActivityLevel => {
   if (schedulesThisMonth === 0) {
     return {
       status: 'none',
@@ -85,7 +78,12 @@ const getActivityLevel = (member: Profile): ActivityLevel => {
 
 // Componente de barra de status compacta para tabelas
 export function ActivityStatusBar({ member }: { member: Profile }) {
-  const activity = getActivityLevel(member);
+  const { data: schedules } = useSchedules();
+  const count = useMemo(
+    () => computeSchedulesThisMonth(schedules, member.id),
+    [schedules, member.id],
+  );
+  const activity = getActivityLevel(count);
 
   return (
     <div className="flex items-center gap-2">
@@ -111,7 +109,12 @@ export function ActivityStatusBar({ member }: { member: Profile }) {
 }
 
 export function ActivityMonitor({ member }: { member: Profile }) {
-  const activity = getActivityLevel(member);
+  const { data: schedules } = useSchedules();
+  const count = useMemo(
+    () => computeSchedulesThisMonth(schedules, member.id),
+    [schedules, member.id],
+  );
+  const activity = getActivityLevel(count);
 
   return (
     <div className={`${activity.bgColor} border ${activity.borderColor} rounded-lg p-3 flex items-center gap-3`}>
@@ -140,20 +143,21 @@ export function ActivityMonitor({ member }: { member: Profile }) {
 }
 
 export function ActivityMonitorSection({ members }: { members: Profile[] }) {
-  const lowParticipation = members.filter(m => {
-    const activity = getActivityLevel(m);
-    return activity.status === 'none';
-  });
+  const { data: schedules } = useSchedules();
 
-  const idealParticipation = members.filter(m => {
-    const activity = getActivityLevel(m);
-    return activity.status === 'ideal';
-  });
+  const memberData = useMemo(
+    () => members.map(m => ({
+      member: m,
+      activity: getActivityLevel(computeSchedulesThisMonth(schedules, m.id)),
+    })),
+    [members, schedules],
+  );
 
-  const highActivity = members.filter(m => {
-    const activity = getActivityLevel(m);
-    return activity.status === 'moderate' || activity.status === 'high';
-  });
+  const lowParticipation = memberData.filter(({ activity }) => activity.status === 'none');
+  const idealParticipation = memberData.filter(({ activity }) => activity.status === 'ideal');
+  const highActivity = memberData.filter(({ activity }) =>
+    activity.status === 'moderate' || activity.status === 'high',
+  );
 
   return (
     <div className="space-y-6">
