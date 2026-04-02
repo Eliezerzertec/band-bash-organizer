@@ -93,7 +93,7 @@ export function Header({ title, subtitle, onMenuClick }: HeaderProps) {
 
         if (mentioned) {
           notificationService.notify({
-            title: `Voce foi mencionado por ${message.sender?.name || 'Sistema'}`,
+            title: `Você foi mencionado por ${message.sender?.name || 'Sistema'}`,
             body: message.subject || message.content?.substring(0, 120) || 'Abra para ver os detalhes.',
             tag: 'message-mention',
           });
@@ -143,8 +143,8 @@ export function Header({ title, subtitle, onMenuClick }: HeaderProps) {
 
           if (isTargetSubstitute) {
             notificationService.notify({
-              title: 'Nova solicitacao de substituicao',
-              body: 'Voce foi escolhido como substituto. Abra Substituicoes para aceitar ou recusar.',
+              title: 'Nova solicitação de substituição',
+              body: 'Você foi escolhido como substituto. Abra Substituições para aceitar ou recusar.',
               tag: `substitution-request-${row.id}`,
             });
             return;
@@ -152,7 +152,7 @@ export function Header({ title, subtitle, onMenuClick }: HeaderProps) {
 
           if (isMentioned) {
             notificationService.notify({
-              title: 'Voce foi mencionado em substituicao',
+              title: 'Você foi mencionado em substituição',
               body: row.reason || 'Abra Substituicoes para ver os detalhes.',
               tag: `substitution-mention-${row.id}`,
             });
@@ -160,7 +160,7 @@ export function Header({ title, subtitle, onMenuClick }: HeaderProps) {
           }
 
           notificationService.notify({
-            title: 'Solicitacao de substituicao enviada',
+            title: 'Solicitação de substituição enviada',
             body: 'Sua solicitacao foi registrada com sucesso.',
             tag: `substitution-created-${row.id}`,
           });
@@ -192,7 +192,7 @@ export function Header({ title, subtitle, onMenuClick }: HeaderProps) {
 
           if (row.status === 'accepted' && isRequester) {
             notificationService.notify({
-              title: 'Substituicao aceita',
+              title: 'Substituição aceita',
               body: 'Seu pedido de substituicao foi aceito.',
               tag: `substitution-accepted-${row.id}`,
             });
@@ -201,7 +201,7 @@ export function Header({ title, subtitle, onMenuClick }: HeaderProps) {
 
           if (row.status === 'rejected' && isRequester) {
             notificationService.notify({
-              title: 'Substituicao recusada',
+              title: 'Substituição recusada',
               body: 'Seu pedido de substituicao foi recusado.',
               tag: `substitution-rejected-${row.id}`,
             });
@@ -210,7 +210,7 @@ export function Header({ title, subtitle, onMenuClick }: HeaderProps) {
 
           if (row.status === 'accepted' && isSubstitute) {
             notificationService.notify({
-              title: 'Voce aceitou uma substituicao',
+              title: 'Você aceitou uma substituição',
               body: 'A escala foi atualizada para voce.',
               tag: `substitution-you-accepted-${row.id}`,
             });
@@ -251,7 +251,7 @@ export function Header({ title, subtitle, onMenuClick }: HeaderProps) {
           <div className="relative hidden lg:block">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-header-foreground/40" />
             <Input 
-              placeholder="Search anything here..." 
+              placeholder="Buscar..." 
               className="pl-11 w-72 bg-white/10 border-white/10 text-header-foreground placeholder:text-header-foreground/40 rounded-xl focus:bg-white/15 focus:border-white/20"
             />
           </div>

@@ -151,7 +151,7 @@ export default function DetailedReports() {
           <TabsList className="grid w-full grid-cols-4 lg:w-auto">
             <TabsTrigger value="participation">Participação</TabsTrigger>
             <TabsTrigger value="substitutions">Substituições</TabsTrigger>
-            <TabsTrigger value="scores">Escore</TabsTrigger>
+            <TabsTrigger value="scores">Avaliações</TabsTrigger>
             <TabsTrigger value="access">Acessos</TabsTrigger>
           </TabsList>
 
@@ -339,15 +339,15 @@ export default function DetailedReports() {
             </div>
           </TabsContent>
 
-          {/* Tab: Escore de Membros */}
+          {/* Tab: Avaliações de membros */}
           <TabsContent value="scores" className="space-y-4">
             <div className="card-elevated p-6">
               <div className="mb-6">
                 <h3 className="font-semibold text-lg text-foreground">
-                  Ranking de Escore dos Membros
+                  Ranking de Avaliações dos Membros
                 </h3>
                 <p className="text-sm text-muted-foreground">
-                  Membros ordenados por escore total
+                  Membros ordenados pela pontuação total
                 </p>
               </div>
 
@@ -358,7 +358,7 @@ export default function DetailedReports() {
               ) : filteredScores.length === 0 ? (
                 <Alert variant="default">
                   <AlertCircle className="h-4 w-4" />
-                  <AlertDescription>Nenhum escore registrado</AlertDescription>
+                  <AlertDescription>Nenhuma avaliação registrada</AlertDescription>
                 </Alert>
               ) : (
                 <div className="space-y-4">

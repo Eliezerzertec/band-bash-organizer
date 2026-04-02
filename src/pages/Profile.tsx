@@ -5,6 +5,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useCurrentProfile, useUpdateProfile } from '@/hooks/useProfiles';
 import { toast } from 'sonner';
+import { downloadCommitmentTermPdf } from '@/lib/commitmentTermPdf';
+import { Download } from 'lucide-react';
 
 export default function Profile() {
   const { data: profile, isLoading } = useCurrentProfile();
@@ -58,6 +60,29 @@ export default function Profile() {
     });
   };
 
+  const handleDownloadCommitmentTerm = () => {
+    if (!profile) return;
+
+    const payload = profile.commitment_term_payload || {};
+
+    downloadCommitmentTermPdf({
+      churchName: payload.church_name || '',
+      churchAddress: payload.church_address || '',
+      churchPhone: payload.church_phone || '',
+      ministryName: payload.ministry_name || 'Ministerio de Louvor',
+      memberName: profile.name || '',
+      memberRole: payload.member_role || (profile.musical_skills?.join(', ') ?? ''),
+      agreedAt: profile.commitment_term_accepted_at || profile.created_at,
+    });
+  };
+
+  const hasCommitmentTerm = !!(
+    profile?.commitment_term_accepted ||
+    profile?.commitment_term_accepted_at ||
+    profile?.commitment_term_payload?.ministry_name ||
+    profile?.commitment_term_payload?.church_name
+  );
+
   return (
     <MainLayout title="Editar Perfil" subtitle="Atualize seus dados pessoais">
       <div className="max-w-2xl">
@@ -71,60 +96,81 @@ export default function Profile() {
           )}
 
           {profile && (
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="flex items-center gap-6">
-                <div className="h-24 w-24 overflow-hidden rounded-full border border-border bg-muted">
-                  {avatarPreview ? (
-                    <img src={avatarPreview} alt="Avatar" className="h-full w-full object-cover" />
-                  ) : (
-                    <div className="h-full w-full" />
-                  )}
+            <div className="space-y-6">
+              <form onSubmit={handleSubmit} className="space-y-6">
+                <div className="flex items-center gap-6">
+                  <div className="h-24 w-24 overflow-hidden rounded-full border border-border bg-muted">
+                    {avatarPreview ? (
+                      <img src={avatarPreview} alt="Avatar" className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="h-full w-full" />
+                    )}
+                  </div>
+                  <div>
+                    <Label htmlFor="avatar">Foto de perfil</Label>
+                    <Input
+                      id="avatar"
+                      type="file"
+                      accept="image/*"
+                      onChange={handleAvatarChange}
+                      className="mt-2"
+                    />
+                    <p className="mt-1 text-xs text-muted-foreground">PNG, JPG ou WEBP até 5MB.</p>
+                  </div>
                 </div>
-                <div>
-                  <Label htmlFor="avatar">Foto de perfil</Label>
-                  <Input
-                    id="avatar"
-                    type="file"
-                    accept="image/*"
-                    onChange={handleAvatarChange}
-                    className="mt-2"
-                  />
-                  <p className="mt-1 text-xs text-muted-foreground">PNG, JPG ou WEBP até 5MB.</p>
+
+                <div className="grid gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="name">Nome</Label>
+                    <Input
+                      id="name"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      placeholder="Seu nome"
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="email">Email</Label>
+                    <Input id="email" value={profile.email} disabled />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="phone">Telefone</Label>
+                    <Input
+                      id="phone"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      placeholder="(00) 00000-0000"
+                    />
+                  </div>
                 </div>
+
+                <Button type="submit" disabled={updateProfile.isPending}>
+                  {updateProfile.isPending ? 'Salvando...' : 'Salvar alterações'}
+                </Button>
+              </form>
+
+              <div className="rounded-xl border border-border/70 bg-muted/30 p-4 space-y-3">
+                <h3 className="text-sm font-semibold">Termo de Compromisso</h3>
+                {hasCommitmentTerm ? (
+                  <>
+                    <p className="text-sm text-muted-foreground">
+                      Termo registrado no perfil. O documento pode ser baixado em PDF quando precisar.
+                    </p>
+                    <Button type="button" variant="outline" className="gap-2" onClick={handleDownloadCommitmentTerm}>
+                      <Download className="h-4 w-4" />
+                      Baixar termo em PDF
+                    </Button>
+                  </>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    Nenhum termo de compromisso registrado para este perfil.
+                  </p>
+                )}
               </div>
-
-              <div className="grid gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="name">Nome</Label>
-                  <Input
-                    id="name"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="Seu nome"
-                    required
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input id="email" value={profile.email} disabled />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="phone">Telefone</Label>
-                  <Input
-                    id="phone"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    placeholder="(00) 00000-0000"
-                  />
-                </div>
-              </div>
-
-              <Button type="submit" disabled={updateProfile.isPending}>
-                {updateProfile.isPending ? 'Salvando...' : 'Salvar alterações'}
-              </Button>
-            </form>
+            </div>
           )}
         </div>
       </div>

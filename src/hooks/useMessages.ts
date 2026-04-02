@@ -40,6 +40,7 @@ export function useMessages() {
           recipient:profiles!messages_recipient_id_fkey(id, name),
           recipient_team:teams!messages_recipient_team_id_fkey(id, name)
         `)
+        .is('read_at', null)
         .order('created_at', { ascending: false });
       
       if (error) throw error;
@@ -69,23 +70,40 @@ export function useMarkMessageAsRead() {
 
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from('messages')
-        .update({ read_at: new Date().toISOString() })
-        .eq('id', id);
-      
-      if (error) throw error;
+      const { data, error } = await supabase.rpc('mark_message_as_read', { p_message_id: id });
+
+      if (error) {
+        const message = (error.message || '').toLowerCase();
+        const rpcMissing = message.includes('function') && message.includes('mark_message_as_read');
+
+        // Compatibilidade durante deploy gradual: se RPC ainda nao estiver aplicada, tenta fluxo antigo.
+        if (rpcMissing) {
+          const { error: legacyError } = await supabase
+            .from('messages')
+            .update({ read_at: new Date().toISOString() })
+            .eq('id', id);
+
+          if (legacyError) throw legacyError;
+          return id;
+        }
+
+        throw error;
+      }
+
+      if (data !== true) {
+        throw new Error('Sem permissão para marcar esta mensagem como lida.');
+      }
+
       return id;
     },
     onSuccess: (id) => {
-      // Atualiza localmente para evitar que a mensagem "desapareca" da lista apos leitura.
+      // Remove da caixa local imediatamente para refletir inbox apenas com não lidas.
       queryClient.setQueryData<Message[]>(['messages'], (old) => {
         if (!old) return old;
-        const now = new Date().toISOString();
-        return old.map((msg) => (msg.id === id ? { ...msg, read_at: msg.read_at ?? now } : msg));
+        return old.filter((msg) => msg.id !== id);
       });
       queryClient.invalidateQueries({ queryKey: ['messages', 'unread_count'] });
-      toast({ title: 'Mensagem marcada como lida' });
+      toast({ title: 'Mensagem lida e removida da caixa' });
     },
     onError: (error) => {
       toast({ title: 'Erro ao marcar como lida', description: error.message, variant: 'destructive' });
@@ -113,7 +131,7 @@ export function useSendMessage() {
         const { data: { session } } = await supabase.auth.getSession();
         const currentUserId = session?.user?.id;
         if (!currentUserId) {
-          throw new Error('Usuario nao autenticado para enviar mensagem.');
+          throw new Error('Usuário não autenticado para enviar mensagem.');
         }
 
         const { data: roleData, error: roleError } = await supabase
@@ -125,7 +143,7 @@ export function useSendMessage() {
 
         if (roleError) throw roleError;
         if (!roleData?.church_id) {
-          throw new Error('Nao foi possivel identificar a igreja para envio da mensagem.');
+          throw new Error('Não foi possível identificar a igreja para envio da mensagem.');
         }
 
         churchId = roleData.church_id;

@@ -11,9 +11,20 @@ export interface Ministry {
   leader_id: string | null;
   created_at: string;
   updated_at: string;
-  church?: { name: string };
+  church?: { name: string; address?: string | null; contact?: string | null };
   leader?: { name: string };
 }
+
+type SignupMinistryRow = {
+  id: string;
+  name: string;
+  description: string | null;
+  logo_url: string | null;
+  church_id: string;
+  church_name: string | null;
+  church_address: string | null;
+  church_contact: string | null;
+};
 
 export function useMinistries(churchId?: string) {
   return useQuery({
@@ -23,7 +34,7 @@ export function useMinistries(churchId?: string) {
         .from('ministries')
         .select(`
           *,
-          church:church_id(name),
+          church:church_id(name, address, contact),
           leader:leader_id(name)
         `)
         .order('name');
@@ -40,6 +51,33 @@ export function useMinistries(churchId?: string) {
   });
 }
 
+export function useSignupMinistries() {
+  return useQuery({
+    queryKey: ['signup-ministries'],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('list_signup_ministries');
+
+      if (error) throw error;
+
+      return ((data || []) as SignupMinistryRow[]).map((ministry) => ({
+        id: ministry.id,
+        name: ministry.name,
+        description: ministry.description,
+        logo_url: ministry.logo_url,
+        church_id: ministry.church_id,
+        leader_id: null,
+        created_at: '',
+        updated_at: '',
+        church: {
+          name: ministry.church_name || '',
+          address: ministry.church_address,
+          contact: ministry.church_contact,
+        },
+      })) as Ministry[];
+    },
+  });
+}
+
 export function useMinistry(id: string) {
   return useQuery({
     queryKey: ['ministries', id],
@@ -48,7 +86,7 @@ export function useMinistry(id: string) {
         .from('ministries')
         .select(`
           *,
-          church:church_id(name),
+          church:church_id(name, address, contact),
           leader:leader_id(name)
         `)
         .eq('id', id)

@@ -105,11 +105,11 @@ export function MemberEvaluationsChart() {
           </AnimatedIcon>
           <div>
             <h3 className="font-semibold text-foreground">
-              {isAdmin ? 'Avaliações - Escore dos Membros' : 'Meu Escore de Avaliação'}
+              {isAdmin ? 'Avaliações dos Membros' : 'Minha Avaliação'}
             </h3>
             <p className="text-sm text-muted-foreground mt-0.5">
               {isAdmin 
-                ? 'Visualize os escores calculados com as avaliações dos membros'
+                ? 'Visualize os resultados calculados com as avaliações dos membros'
                 : 'Sua nota média recebida nas avaliações dos colegas'
               }
             </p>
@@ -145,7 +145,7 @@ export function MemberEvaluationsChart() {
       {selectedMember && (
         <div className="mb-6 bg-muted/30 rounded-lg p-4">
           <div className="text-center mb-2">
-            <h4 className="text-sm font-semibold text-foreground">Escore Atual</h4>
+            <h4 className="text-sm font-semibold text-foreground">Pontuação atual</h4>
             <p className="text-xs text-muted-foreground">{selectedMember.name}</p>
           </div>
           <ScoreGauge 
@@ -241,7 +241,7 @@ export function MemberEvaluationsChart() {
 
       {/* Footer Info */}
       <div className="mt-4 pt-4 border-t border-border/50 text-xs text-muted-foreground space-y-1">
-        <p>• Escore exibido em escala de 0 a 1000 (nota média × 200)</p>
+        <p>• Pontuação exibida em escala de 0 a 1000 (nota média x 200)</p>
         <p>• Nota média real: 1.0 a 5.0 estrelas</p>
       </div>
     </div>

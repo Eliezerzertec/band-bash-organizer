@@ -194,7 +194,7 @@ export function useUpdateMemberScore() {
       // TODO: Substituir por dados reais do banco após executar migration
       const currentScore = MOCK_MEMBER_SCORES.find(m => m.user_id === userId);
       if (!currentScore) {
-        throw new Error('Escore do membro não encontrado');
+        throw new Error('Avaliação do membro não encontrada');
       }
 
       return currentScore;
@@ -204,13 +204,13 @@ export function useUpdateMemberScore() {
       queryClient.invalidateQueries({ queryKey: ['member-score'] });
       toast({
         title: 'Sucesso',
-        description: 'Escore do membro atualizado com sucesso!',
+        description: 'Avaliação do membro atualizada com sucesso!',
       });
     },
     onError: (error) => {
       toast({
         title: 'Erro',
-        description: error instanceof Error ? error.message : 'Erro ao atualizar escore',
+        description: error instanceof Error ? error.message : 'Erro ao atualizar avaliação',
         variant: 'destructive',
       });
     },
@@ -247,13 +247,13 @@ export function useCreateMemberScore() {
       queryClient.invalidateQueries({ queryKey: ['member-scores'] });
       toast({
         title: 'Sucesso',
-        description: 'Escore criado com valor inicial de 500',
+        description: 'Avaliação criada com valor inicial de 500',
       });
     },
     onError: (error) => {
       toast({
         title: 'Erro',
-        description: error instanceof Error ? error.message : 'Erro ao criar escore',
+        description: error instanceof Error ? error.message : 'Erro ao criar avaliação',
         variant: 'destructive',
       });
     },

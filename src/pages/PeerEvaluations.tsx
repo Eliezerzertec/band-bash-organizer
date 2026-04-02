@@ -200,11 +200,11 @@ function MemberEvalCard({
   );
 }
 
-// ─── Painel de Escores (visão geral) ─────────────────────────────────────────
+// ─── Painel de avaliações (visão geral) ──────────────────────────────────────
 function ScoresPanel() {
   const { data: scores, isLoading } = useAllPeerEvaluationScores();
 
-  if (isLoading) return <p className="text-sm text-muted-foreground">Carregando escores...</p>;
+  if (isLoading) return <p className="text-sm text-muted-foreground">Carregando avaliações...</p>;
   if (!scores || scores.length === 0)
     return <p className="text-sm text-muted-foreground">Nenhuma avaliação registrada ainda.</p>;
 
@@ -269,7 +269,7 @@ export default function PeerEvaluations() {
         <div>
           <h1 className="text-2xl font-bold">Avaliação entre Membros</h1>
           <p className="text-sm text-muted-foreground">
-            Avalie seus colegas de equipe de 1 a 5 estrelas em cada critério. O escore geral é a média de todas as avaliações recebidas.
+            Avalie seus colegas de equipe de 1 a 5 estrelas em cada critério. A pontuação geral é a média de todas as avaliações recebidas.
           </p>
         </div>
       </div>
@@ -293,7 +293,7 @@ export default function PeerEvaluations() {
             }`}
           >
             <Award className="inline w-4 h-4 mr-1" />
-            Escores gerais
+            Avaliações gerais
           </button>
         ) : (
           <button
@@ -325,7 +325,7 @@ export default function PeerEvaluations() {
       ) : (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">{isAdmin ? 'Ranking de Escores' : 'Minha pontuação'}</CardTitle>
+            <CardTitle className="text-base">{isAdmin ? 'Ranking de Avaliações' : 'Minha pontuação'}</CardTitle>
           </CardHeader>
           <CardContent>
             {isAdmin ? (

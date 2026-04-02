@@ -248,7 +248,7 @@ export default function Messages() {
                         />
                         {mentionCandidates.length > 0 && (
                           <p className="text-xs text-muted-foreground mt-2">
-                            Mencoes detectadas: {mentionCandidates.map((m) => m.name).join(', ')}
+                            Menções detectadas: {mentionCandidates.map((m) => m.name).join(', ')}
                           </p>
                         )}
                       </div>

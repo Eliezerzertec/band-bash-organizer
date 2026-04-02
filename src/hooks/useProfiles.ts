@@ -14,6 +14,18 @@ export interface Profile {
   avatar_url: string | null;
   musical_skills: string[];
   status: MemberStatus;
+  commitment_term_accepted?: boolean;
+  commitment_term_accepted_at?: string | null;
+  commitment_term_payload?: {
+    church_name?: string;
+    church_address?: string;
+    church_phone?: string;
+    ministry_name?: string;
+    ministry_id?: string;
+    member_role?: string;
+    agreed_at?: string;
+    term_version?: string;
+  } | null;
   created_at: string;
   updated_at: string;
 }

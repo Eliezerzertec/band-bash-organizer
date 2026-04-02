@@ -10,6 +10,7 @@ import {
   Trash2,
   MapPin,
   Phone,
+  User,
   Users,
   Music,
   Loader2,
@@ -183,6 +184,12 @@ export default function Churches() {
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <Phone className="w-4 h-4" />
                       <span>{church.contact}</span>
+                    </div>
+                  )}
+                  {church.pastor_name && (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <User className="w-4 h-4" />
+                      <span>Pastor: {church.pastor_name}</span>
                     </div>
                   )}
                 </div>
