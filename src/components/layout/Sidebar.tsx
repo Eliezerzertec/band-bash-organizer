@@ -69,12 +69,14 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
     }
   };
 
-  // Close sidebar on route change for mobile
+  // Close sidebar on route change for mobile (onClose excluído das deps para evitar
+  // que seu re-render em MainLayout feche o menu imediatamente ao abrir)
   useEffect(() => {
     if (isMobile) {
       onClose();
     }
-  }, [location.pathname, isMobile, onClose]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname, isMobile]);
 
   // Don't collapse on mobile
   const effectiveCollapsed = isMobile ? false : isCollapsed;

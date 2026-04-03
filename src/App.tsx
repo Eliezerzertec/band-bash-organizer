@@ -1,3 +1,4 @@
+import { Suspense, lazy, useEffect } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -6,39 +7,43 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { ThemeProvider } from "next-themes";
 
-// Pages
-import Login from "./pages/Login";
-import MusicianSignup from "./pages/MusicianSignup";
-import Dashboard from "./pages/Dashboard";
-import MemberDashboard from "./pages/MemberDashboard";
-import Churches from "./pages/Churches";
-import Ministries from "./pages/Ministries";
-import Members from "./pages/Members";
-import MemberSchedulesAdmin from "./pages/MemberSchedulesAdmin";
-import Teams from "./pages/Teams";
-import TeamForm from "./pages/TeamForm";
-import Schedules from "./pages/Schedules";
-import MySchedules from "./pages/MySchedules";
-import Substitutions from "./pages/Substitutions";
-import PeerEvaluations from "./pages/PeerEvaluations";
-import Messages from "./pages/Messages";
-import Reports from "./pages/Reports";
-import DetailedReports from "./pages/DetailedReports";
-import NotFound from "./pages/NotFound";
-import Profile from "./pages/Profile";
+// Pages (lazy loading por rota)
+const Login = lazy(() => import("./pages/Login"));
+const MusicianSignup = lazy(() => import("./pages/MusicianSignup"));
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const MemberDashboard = lazy(() => import("./pages/MemberDashboard"));
+const Churches = lazy(() => import("./pages/Churches"));
+const Ministries = lazy(() => import("./pages/Ministries"));
+const Members = lazy(() => import("./pages/Members"));
+const MemberSchedulesAdmin = lazy(() => import("./pages/MemberSchedulesAdmin"));
+const Teams = lazy(() => import("./pages/Teams"));
+const TeamForm = lazy(() => import("./pages/TeamForm"));
+const Schedules = lazy(() => import("./pages/Schedules"));
+const MySchedules = lazy(() => import("./pages/MySchedules"));
+const Substitutions = lazy(() => import("./pages/Substitutions"));
+const PeerEvaluations = lazy(() => import("./pages/PeerEvaluations"));
+const Messages = lazy(() => import("./pages/Messages"));
+const Reports = lazy(() => import("./pages/Reports"));
+const DetailedReports = lazy(() => import("./pages/DetailedReports"));
+const NotFound = lazy(() => import("./pages/NotFound"));
+const Profile = lazy(() => import("./pages/Profile"));
 
 const queryClient = new QueryClient();
+
+function RouteLoader() {
+  return (
+    <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
+    </div>
+  );
+}
 
 // Protected Route Component
 function ProtectedRoute({ children, adminOnly = false }: { children: React.ReactNode; adminOnly?: boolean }) {
   const { isAuthenticated, isLoading, hasRole } = useAuth();
 
   if (isLoading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
-      </div>
-    );
+    return <RouteLoader />;
   }
 
   if (!isAuthenticated) {
@@ -57,11 +62,7 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading, hasRole } = useAuth();
 
   if (isLoading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
-      </div>
-    );
+    return <RouteLoader />;
   }
 
   if (isAuthenticated) {
@@ -72,11 +73,54 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
 }
 
 function AppRoutes() {
-  const { hasRole } = useAuth();
+  const { hasRole, isAuthenticated } = useAuth();
   const isAdmin = hasRole('admin');
 
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    const connection = (navigator as Navigator & {
+      connection?: { saveData?: boolean; effectiveType?: string };
+    }).connection;
+
+    if (connection?.saveData || (connection?.effectiveType ?? '').includes('2g')) {
+      return;
+    }
+
+    const preloadRoutes = () => {
+      void import('./pages/Messages');
+      void import('./pages/Profile');
+
+      if (isAdmin) {
+        void import('./pages/Schedules');
+        void import('./pages/Reports');
+        void import('./pages/DetailedReports');
+      } else {
+        void import('./pages/MySchedules');
+        void import('./pages/Substitutions');
+      }
+    };
+
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    let idleId: number | undefined;
+
+    if ('requestIdleCallback' in window) {
+      idleId = window.requestIdleCallback(() => preloadRoutes(), { timeout: 2000 });
+    } else {
+      timeoutId = setTimeout(preloadRoutes, 1200);
+    }
+
+    return () => {
+      if (timeoutId) clearTimeout(timeoutId);
+      if (idleId !== undefined && 'cancelIdleCallback' in window) {
+        window.cancelIdleCallback(idleId);
+      }
+    };
+  }, [isAuthenticated, isAdmin]);
+
   return (
-    <Routes>
+    <Suspense fallback={<RouteLoader />}>
+      <Routes>
       {/* Public Routes */}
       <Route path="/login" element={
         <PublicRoute>
@@ -194,7 +238,8 @@ function AppRoutes() {
 
       {/* Catch-all */}
       <Route path="*" element={<NotFound />} />
-    </Routes>
+      </Routes>
+    </Suspense>
   );
 }
 

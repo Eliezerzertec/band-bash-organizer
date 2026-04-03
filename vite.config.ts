@@ -17,4 +17,20 @@ export default defineConfig(({ mode }) => ({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  build: {
+    sourcemap: false,
+    cssCodeSplit: true,
+    reportCompressedSize: false,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          react: ["react", "react-dom", "react-router-dom"],
+          supabase: ["@supabase/supabase-js"],
+          query: ["@tanstack/react-query"],
+          ui: ["lucide-react", "recharts"],
+        },
+      },
+    },
+  },
+  esbuild: mode === "production" ? { drop: ["console", "debugger"] } : undefined,
 }));

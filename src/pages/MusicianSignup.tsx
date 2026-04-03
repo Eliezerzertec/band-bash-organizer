@@ -38,6 +38,7 @@ export default function MusicianSignup() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
+  const [avatarPreview, setAvatarPreview] = useState('');
   const [selectedMinistryId, setSelectedMinistryId] = useState('');
   const [acceptedCommitmentTerm, setAcceptedCommitmentTerm] = useState(false);
   const [password, setPassword] = useState('');
@@ -62,6 +63,30 @@ export default function MusicianSignup() {
     setSelectedSkills((prev) =>
       prev.includes(skill) ? prev.filter((s) => s !== skill) : [...prev, skill]
     );
+  };
+
+  const handleAvatarChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast.error('Selecione uma imagem valida');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('A imagem nao pode ser maior que 5MB');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setAvatarPreview(reader.result as string);
+    };
+    reader.onerror = () => {
+      toast.error('Erro ao processar a imagem');
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -109,6 +134,7 @@ export default function MusicianSignup() {
           name,
           email,
           phone: phone || null,
+          avatar_url: avatarPreview || null,
           status: 'pending_approval',
           musical_skills: selectedSkills,
           commitment_term_accepted: true,
@@ -199,6 +225,28 @@ export default function MusicianSignup() {
                     placeholder="Ex: Joao da Silva"
                     required
                   />
+                </div>
+
+                <div className="space-y-2 md:col-span-2">
+                  <Label htmlFor="avatar">Avatar (opcional)</Label>
+                  <div className="flex items-center gap-4">
+                    <div className="h-16 w-16 overflow-hidden rounded-full border border-border bg-muted">
+                      {avatarPreview ? (
+                        <img src={avatarPreview} alt="Avatar" className="h-full w-full object-cover" />
+                      ) : (
+                        <div className="h-full w-full" />
+                      )}
+                    </div>
+                    <div className="flex-1">
+                      <Input
+                        id="avatar"
+                        type="file"
+                        accept="image/*"
+                        onChange={handleAvatarChange}
+                      />
+                      <p className="mt-1 text-xs text-muted-foreground">PNG, JPG ou WEBP ate 5MB.</p>
+                    </div>
+                  </div>
                 </div>
 
                 <div className="space-y-2">

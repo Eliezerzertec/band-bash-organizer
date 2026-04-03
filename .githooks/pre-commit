@@ -1,0 +1,8 @@
+#!/bin/sh
+npm run check:secrets
+status=$?
+if [ $status -ne 0 ]; then
+  exit $status
+fi
+
+npm run lint

@@ -10,7 +10,11 @@ import {
   Inbox,
   User,
   Users,
-  Clock
+  Clock,
+  Trash2,
+  CheckCheck,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
@@ -28,7 +32,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { useMessages, useUnreadMessagesCount, useMarkMessageAsRead, useSendMessage, Message } from '@/hooks/useMessages';
+import { useMessages, useUnreadMessagesCount, useMarkMessageAsRead, useSendMessage, useDeleteMessage, useMessageReadStatus, Message } from '@/hooks/useMessages';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -55,11 +59,13 @@ export default function Messages() {
   const [subject, setSubject] = useState('');
   const [content, setContent] = useState('');
   
-  const { data: messages, isLoading, error } = useMessages();
-  const { data: unreadCount = 0 } = useUnreadMessagesCount();
+  const { data: currentProfile } = useCurrentProfile();
+  const { data: messages, isLoading, error } = useMessages(currentProfile?.id);
+  const { data: unreadCount = 0 } = useUnreadMessagesCount(currentProfile?.id);
   const markAsRead = useMarkMessageAsRead();
   const sendMessage = useSendMessage();
-  const { data: currentProfile } = useCurrentProfile();
+  const deleteMessage = useDeleteMessage();
+  const { readsQuery, recipientsQuery } = useMessageReadStatus(selectedMessage?.id ?? null, selectedMessage);
   const { data: profiles } = useProfiles();
   const { data: teams } = useTeams();
 
@@ -74,7 +80,9 @@ export default function Messages() {
     });
   }, [content, profiles]);
 
-  const filteredMessages = (messages || []).filter(message =>
+  const visibleMessages = (messages || []).filter((message) => isAdmin || !message.is_read_by_me);
+
+  const filteredMessages = visibleMessages.filter(message =>
     (message.subject || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
     (message.content || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
     (message.sender?.name || '').toLowerCase().includes(searchTerm.toLowerCase())
@@ -82,7 +90,7 @@ export default function Messages() {
 
   const handleSelectMessage = (message: Message) => {
     setSelectedMessage(message);
-    if (!message.read_at) {
+    if (!message.is_read_by_me) {
       markAsRead.mutate(message.id);
     }
   };
@@ -316,7 +324,7 @@ export default function Messages() {
                       "w-full p-4 text-left border-b border-border transition-colors",
                       "hover:bg-muted/50",
                       selectedMessage?.id === message.id && "bg-primary/5",
-                      !message.read_at && "bg-primary/5"
+                      !message.is_read_by_me && "bg-primary/5"
                     )}
                   >
                     <div className="flex items-start gap-3">
@@ -337,7 +345,7 @@ export default function Messages() {
                         <div className="flex items-center justify-between gap-2">
                           <span className={cn(
                             "text-sm truncate",
-                            !message.read_at ? "font-semibold text-foreground" : "text-foreground"
+                            !message.is_read_by_me ? "font-semibold text-foreground" : "text-foreground"
                           )}>
                             {message.sender?.name || 'Sistema'}
                           </span>
@@ -347,7 +355,7 @@ export default function Messages() {
                         </div>
                         <p className={cn(
                           "text-sm truncate mt-0.5",
-                          !message.read_at ? "font-medium text-foreground" : "text-muted-foreground"
+                          !message.is_read_by_me ? "font-medium text-foreground" : "text-muted-foreground"
                         )}>
                           {message.subject || 'Sem assunto'}
                         </p>
@@ -355,7 +363,7 @@ export default function Messages() {
                           {message.content?.slice(0, 60)}...
                         </p>
                       </div>
-                      {!message.read_at && (
+                      {!message.is_read_by_me && (
                         <div className="w-2 h-2 rounded-full bg-primary flex-shrink-0 mt-2" />
                       )}
                     </div>
@@ -396,9 +404,22 @@ export default function Messages() {
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Clock className="w-4 h-4" />
-                    {formatCreatedAt(selectedMessage.created_at)}
+                  <div className="flex items-center gap-3">
+                    <span className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Clock className="w-4 h-4" />
+                      {formatCreatedAt(selectedMessage.created_at)}
+                    </span>
+                    {isAdmin && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="text-destructive hover:text-destructive hover:bg-destructive/10 h-8 w-8 p-0"
+                        onClick={() => { deleteMessage.mutate(selectedMessage.id); setSelectedMessage(null); }}
+                        disabled={deleteMessage.isPending}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    )}
                   </div>
                 </div>
                 <h2 className="text-xl font-semibold text-foreground mt-4">
@@ -433,19 +454,71 @@ export default function Messages() {
                 </div>
               </div>
 
-              {/* Reply */}
-              <div className="p-4 border-t border-border">
-                <div className="flex gap-3">
-                  <Input 
-                    placeholder="Digite sua resposta..." 
-                    className="input-modern"
-                  />
-                  <Button className="gap-2 btn-gradient-primary">
-                    <Send className="w-4 h-4" />
-                    Enviar
-                  </Button>
+              {/* Admin: Status de Leitura */}
+              {isAdmin && (
+                <div className="p-4 border-t border-border bg-muted/30">
+                  <h4 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+                    <CheckCheck className="w-4 h-4" />
+                    Status de Leitura
+                    {readsQuery.isLoading && <span className="text-xs text-muted-foreground font-normal ml-1">carregando...</span>}
+                  </h4>
+                  {!readsQuery.isLoading && (
+                    <>
+                      <div className="flex gap-3 mb-3">
+                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-green-500/10 text-green-600 dark:text-green-400 text-xs font-medium">
+                          <Eye className="w-3 h-3" />
+                          {readsQuery.data?.length ?? 0} leram
+                        </span>
+                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-muted text-muted-foreground text-xs font-medium">
+                          <EyeOff className="w-3 h-3" />
+                          {Math.max(0, (recipientsQuery.data?.length ?? 0) - (readsQuery.data?.length ?? 0))} não leram
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4 max-h-40 overflow-y-auto">
+                        <div>
+                          <p className="text-xs font-medium text-green-600 dark:text-green-400 mb-1">Leram</p>
+                          <div className="space-y-1">
+                            {(readsQuery.data ?? []).map((r) => (
+                              <div key={r.profile_id} className="flex items-center gap-2 text-xs text-foreground">
+                                <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                                  {r.profile?.avatar_url
+                                    ? <img src={r.profile.avatar_url} alt={r.profile.name} className="w-full h-full object-cover" />
+                                    : <span className="text-[10px] font-medium text-primary">{r.profile?.name?.charAt(0) ?? '?'}</span>}
+                                </div>
+                                <span className="truncate">{r.profile?.name ?? r.profile_id}</span>
+                                <span className="text-[10px] text-muted-foreground ml-auto">
+                                  {formatCreatedAt(r.read_at)}
+                                </span>
+                              </div>
+                            ))}
+                            {(readsQuery.data ?? []).length === 0 && <p className="text-xs text-muted-foreground">Nenhum ainda</p>}
+                          </div>
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium text-muted-foreground mb-1">Não leram</p>
+                          <div className="space-y-1">
+                            {(recipientsQuery.data ?? [])
+                              .filter((p) => !(readsQuery.data ?? []).some((r) => r.profile_id === p.id))
+                              .map((p) => (
+                                <div key={p.id} className="flex items-center gap-2 text-xs text-muted-foreground">
+                                  <div className="w-5 h-5 rounded-full bg-muted flex items-center justify-center flex-shrink-0 overflow-hidden">
+                                    {p.avatar_url
+                                      ? <img src={p.avatar_url} alt={p.name} className="w-full h-full object-cover" />
+                                      : <span className="text-[10px] font-medium">{p.name?.charAt(0) ?? '?'}</span>}
+                                  </div>
+                                  <span className="truncate">{p.name}</span>
+                                </div>
+                              ))}
+                            {recipientsQuery.data && (recipientsQuery.data ?? []).filter((p) => !(readsQuery.data ?? []).some((r) => r.profile_id === p.id)).length === 0 && (
+                              <p className="text-xs text-muted-foreground">Todos leram!</p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </>
+                  )}
                 </div>
-              </div>
+              )}
             </>
           ) : (
             <div className="flex-1 flex items-center justify-center">

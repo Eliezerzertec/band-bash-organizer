@@ -5,7 +5,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useCurrentProfile, useUpdateProfile } from '@/hooks/useProfiles';
 import { toast } from 'sonner';
-import { downloadCommitmentTermPdf } from '@/lib/commitmentTermPdf';
 import { Download } from 'lucide-react';
 
 export default function Profile() {
@@ -60,10 +59,12 @@ export default function Profile() {
     });
   };
 
-  const handleDownloadCommitmentTerm = () => {
+  const handleDownloadCommitmentTerm = async () => {
     if (!profile) return;
 
     const payload = profile.commitment_term_payload || {};
+
+    const { downloadCommitmentTermPdf } = await import('@/lib/commitmentTermPdf');
 
     downloadCommitmentTermPdf({
       churchName: payload.church_name || '',

@@ -11,6 +11,11 @@ node_modules
 dist
 dist-ssr
 *.local
+.env
+.env.*
+clone.env
+supabase-vps/
+build_check.log
 
 # Scripts com credenciais — nunca versionar
 CRIAR_ADMIN.sql

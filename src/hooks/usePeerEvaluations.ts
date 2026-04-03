@@ -231,17 +231,29 @@ export function useMyEvaluationOf(evaluatedId: string) {
   });
 }
 
-// Membros ativos para avaliar (exclui o próprio usuário logado)
+// Membros ativos para avaliar (exclui o próprio usuário logado e admins)
 export function useMembersToEvaluate() {
   const { user } = useAuth();
   return useQuery({
     queryKey: ['members-to-evaluate'],
     queryFn: async () => {
       if (!user) return [];
+
+      // Busca todos os user_ids que possuem role 'admin' em qualquer igreja
+      const { data: adminRoles, error: rolesError } = await supabase
+        .from('user_roles')
+        .select('user_id')
+        .eq('role', 'admin');
+      if (rolesError) throw rolesError;
+
+      const adminUserIds = (adminRoles ?? []).map((r: { user_id: string }) => r.user_id);
+      // Sempre exclui o próprio usuário logado
+      const excludedUserIds = [...new Set([user.id, ...adminUserIds])];
+
       const { data, error } = await supabase
         .from('profiles')
         .select('id, name, avatar_url, musical_skills, phone')
-        .neq('user_id', user.id)
+        .not('user_id', 'in', `(${excludedUserIds.join(',')})`)
         .eq('status', 'active')
         .order('name');
       if (error) throw error;
