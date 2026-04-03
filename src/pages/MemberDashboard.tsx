@@ -2,12 +2,11 @@ import { useEffect, useState } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { useCurrentProfile } from '@/hooks/useProfiles';
 import { useSchedules } from '@/hooks/useSchedules';
-import { useMessages } from '@/hooks/useMessages';
 import { useTeams } from '@/hooks/useTeams';
 import { useChurches } from '@/hooks/useChurches';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Calendar as CalendarIcon, MessageSquare, User, ArrowRight, Music, Clock, MapPin, Users, Tag, Building2, FileText, Guitar, Star } from 'lucide-react';
+import { Calendar as CalendarIcon, MessageSquare, User, Music, Clock, MapPin, Users, Tag, Building2, FileText, Guitar, Star } from 'lucide-react';
 import { usePeerEvaluationScore, EVAL_CRITERIA } from '@/hooks/usePeerEvaluations';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -23,9 +22,8 @@ function toScorePoints(overallScore: number): number {
 
 export default function MemberDashboard() {
   const navigate = useNavigate();
-  const { data: profile, isLoading: profileLoading } = useCurrentProfile();
+  const { data: profile } = useCurrentProfile();
   const { data: schedules, isLoading: schedulesLoading } = useSchedules();
-  const { data: messages, isLoading: messagesLoading } = useMessages();
   const { data: teams, isLoading: teamsLoading } = useTeams();
   const { data: churches } = useChurches();
   const { data: peerScore } = usePeerEvaluationScore(profile?.id ?? '');
@@ -66,45 +64,11 @@ export default function MemberDashboard() {
     .sort((a, b) => (a.start_time ?? '23:59').localeCompare(b.start_time ?? '23:59'));
 
   const scheduleDates = mySchedules.map(schedule => parseLocalDate(schedule.event_date));
-  const nextUpcomingSchedule = upcomingSchedules[0];
-
-  const quickViewSchedules = selectedDaySchedules.length > 0
-    ? selectedDaySchedules
-    : (nextUpcomingSchedule ? [nextUpcomingSchedule] : []);
-
-  const quickViewTeams = quickViewSchedules
-    .map((schedule) => {
-      const assignment = schedule.schedule_assignments?.find(
-        teamAssignment => teamAssignment.profile_id === profile?.id,
-      );
-      const resolvedTeam = teams?.find(team => team.id === assignment?.team_id)
-        ?? teams?.find(team => team.name === assignment?.team?.name)
-        ?? null;
-
-      return {
-        schedule,
-        assignment,
-        team: resolvedTeam,
-        members: [...(resolvedTeam?.team_members ?? [])].sort((left, right) =>
-          (left.profile?.name ?? '').localeCompare(right.profile?.name ?? '', 'pt-BR', { sensitivity: 'base' }),
-        ),
-      };
-    })
-    .filter((entry, index, entries) => {
-      if (!entry.team) {
-        return index === entries.findIndex(candidate => candidate.schedule.id === entry.schedule.id);
-      }
-
-      return index === entries.findIndex(candidate => candidate.team?.id === entry.team?.id);
-    });
 
   // Equipes do membro
   const myTeams = teams?.filter(team =>
     team.team_members?.some(tm => tm.profile_id === profile?.id)
   ) || [];
-
-  // Mensagens não lidas
-  const unreadMessages = messages?.filter(m => !m.read_at) || [];
 
   const formatDate = (dateStr: string) => {
     try {
@@ -125,90 +89,7 @@ export default function MemberDashboard() {
       subtitle={`Olá ${profile?.name || 'Membro'}! Acompanhe suas atividades e escalas`}
     >
       <div className="space-y-6">
-        {/* Top Stats Row */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          {/* Perfil Card */}
-          <Card className="overflow-hidden border-l-4 border-l-primary hover:shadow-lg transition-shadow">
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2 text-sm font-semibold">
-                <User className="w-4 h-4 text-primary" />
-                Perfil
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {profileLoading ? (
-                <Skeleton className="h-4 w-32" />
-              ) : (
-                <>
-                  <p className="font-bold text-lg text-foreground">{profile?.name}</p>
-                  <p className="text-xs text-muted-foreground mt-1">{profile?.status === 'active' ? '✅ Ativo' : '⚠️ Inativo'}</p>
-                </>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Próximas Escalas Card */}
-          <Card className="overflow-hidden border-l-4 border-l-blue-500 hover:shadow-lg transition-shadow">
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2 text-sm font-semibold">
-                <CalendarIcon className="w-4 h-4 text-blue-500" />
-                Próximas Escalas
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {schedulesLoading ? (
-                <Skeleton className="h-4 w-32" />
-              ) : (
-                <>
-                  <p className="font-bold text-lg text-blue-600">{upcomingSchedules.length}</p>
-                  <p className="text-xs text-muted-foreground mt-1">escalas agendadas</p>
-                </>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Mensagens Card */}
-          <Card className="overflow-hidden border-l-4 border-l-green-500 hover:shadow-lg transition-shadow">
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2 text-sm font-semibold">
-                <MessageSquare className="w-4 h-4 text-green-500" />
-                Mensagens
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {messagesLoading ? (
-                <Skeleton className="h-4 w-32" />
-              ) : (
-                <>
-                  <p className="font-bold text-lg text-green-600">{unreadMessages.length}</p>
-                  <p className="text-xs text-muted-foreground mt-1">não lidas</p>
-                </>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Equipes Card */}
-          <Card className="overflow-hidden border-l-4 border-l-purple-500 hover:shadow-lg transition-shadow">
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2 text-sm font-semibold">
-                <Users className="w-4 h-4 text-purple-500" />
-                Equipes
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {teamsLoading ? (
-                <Skeleton className="h-4 w-32" />
-              ) : (
-                <>
-                  <p className="font-bold text-lg text-purple-600">{myTeams.length}</p>
-                  <p className="text-xs text-muted-foreground mt-1">equipes ativas</p>
-                </>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-
-        <div className="grid grid-cols-1 xl:grid-cols-[1.2fr_0.8fr] gap-6">
+        <div className="grid grid-cols-1 gap-6">
           <Card className="overflow-hidden">
             <CardHeader className="pb-4">
               <div className="flex items-start justify-between gap-3">
@@ -348,96 +229,6 @@ export default function MemberDashboard() {
                   </div>
                 </>
               )}
-            </CardContent>
-          </Card>
-
-          <Card className="border-dashed bg-muted/15">
-            <CardHeader>
-              <CardTitle className="text-base flex items-center gap-2">
-                <Clock className="w-4 h-4 text-primary" />
-                Visão Rápida
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4 text-sm text-muted-foreground">
-              <div className="rounded-lg border bg-background p-3">
-                <p className="font-medium text-foreground">
-                  {selectedDaySchedules.length > 0 ? 'Agenda selecionada' : 'Próxima agenda'}
-                </p>
-                <p className="mt-1">
-                  {quickViewSchedules[0]
-                    ? `${formatDate(quickViewSchedules[0].event_date)}${quickViewSchedules[0].start_time ? ` às ${formatTime(quickViewSchedules[0].start_time)}` : ''}`
-                    : 'Nenhuma escala futura cadastrada no momento.'}
-                </p>
-              </div>
-              <div className="rounded-lg border bg-background p-3">
-                <div className="flex items-center justify-between gap-3">
-                  <p className="font-medium text-foreground">
-                    {selectedDaySchedules.length > 0 ? 'Membros da agenda selecionada' : 'Equipe da próxima agenda'}
-                  </p>
-                  {quickViewTeams.length > 0 && (
-                    <Badge variant="secondary" className="text-xs">
-                      {quickViewTeams.length} equipe{quickViewTeams.length !== 1 ? 's' : ''}
-                    </Badge>
-                  )}
-                </div>
-
-                {quickViewTeams.some((entry) => entry.members.length > 0) ? (
-                  <div className="mt-3 space-y-3">
-                    {quickViewTeams.map((entry) => (
-                      <div key={entry.team?.id ?? entry.schedule.id} className="space-y-2 rounded-lg border border-border/60 p-3">
-                        <div className="flex items-center justify-between gap-2">
-                          <p className="font-medium text-foreground">
-                            {entry.team?.name || entry.assignment?.team?.name || entry.schedule.title || entry.schedule.event_name}
-                          </p>
-                          {entry.assignment?.role_assigned && (
-                            <Badge variant="outline" className="text-[11px]">
-                              {entry.assignment.role_assigned}
-                            </Badge>
-                          )}
-                        </div>
-
-                        {entry.members.length > 0 ? (
-                          <div className="space-y-2">
-                            {entry.members.map((member) => (
-                              <div key={member.id} className="flex items-center justify-between gap-3 rounded-md border border-border/60 px-3 py-2">
-                                <div className="min-w-0">
-                                  <p className="truncate font-medium text-foreground">
-                                    {member.profile?.name || 'Membro sem nome'}
-                                  </p>
-                                  {member.profile?.musical_skills?.length ? (
-                                    <p className="truncate text-xs text-muted-foreground">
-                                      {member.profile.musical_skills.join(', ')}
-                                    </p>
-                                  ) : null}
-                                </div>
-                                <div className="shrink-0 text-right text-xs text-muted-foreground">
-                                  {member.role_in_team || 'Sem função'}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <p className="text-sm text-muted-foreground">
-                            Não foi possível identificar os integrantes desta equipe.
-                          </p>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="mt-2 text-sm">
-                    {quickViewSchedules[0]
-                      ? 'Ainda não foi possível identificar os integrantes da agenda selecionada.'
-                      : 'Nenhuma agenda futura cadastrada no momento.'}
-                  </p>
-                )}
-              </div>
-              <div className="rounded-lg border bg-background p-3">
-                <p className="font-medium text-foreground">Como ler o calendário</p>
-                <p className="mt-1">
-                  Cada ponto indica uma data com escala. Ao selecionar o dia, o painel ao lado mostra equipe, função, local e observações do evento.
-                </p>
-              </div>
             </CardContent>
           </Card>
         </div>
@@ -595,34 +386,6 @@ export default function MemberDashboard() {
 
           {/* Sidebar */}
           <div className="space-y-6">
-            {/* Perfil Detalhado */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Informações</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {profileLoading ? (
-                  <div className="space-y-2">
-                    <Skeleton className="h-4 w-full" />
-                    <Skeleton className="h-4 w-full" />
-                  </div>
-                ) : profile ? (
-                  <>
-                    <div>
-                      <p className="text-xs text-muted-foreground font-semibold">EMAIL</p>
-                      <p className="text-sm break-all">{profile.email}</p>
-                    </div>
-                    {profile.phone && (
-                      <div>
-                        <p className="text-xs text-muted-foreground font-semibold">TELEFONE</p>
-                        <p className="text-sm">{profile.phone}</p>
-                      </div>
-                    )}
-                  </>
-                ) : null}
-              </CardContent>
-            </Card>
-
             {/* Minhas Equipes */}
             <Card>
               <CardHeader>
@@ -673,36 +436,6 @@ export default function MemberDashboard() {
                   })
                 ) : (
                   <p className="text-sm text-muted-foreground">Nenhuma equipe atribuída</p>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Mensagens Rápidas */}
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-                <CardTitle className="text-base">Mensagens Recentes</CardTitle>
-                <MessageSquare className="w-4 h-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                {messagesLoading ? (
-                  <Skeleton className="h-4 w-full" />
-                ) : unreadMessages.length > 0 ? (
-                  <>
-                    <p className="text-sm text-muted-foreground mb-3">
-                      Você tem <span className="font-bold text-primary">{unreadMessages.length}</span> mensagem{unreadMessages.length !== 1 ? 's' : ''} não lida{unreadMessages.length !== 1 ? 's' : ''}
-                    </p>
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      className="w-full gap-2"
-                      onClick={() => navigate('/messages')}
-                    >
-                      Ver Mensagens
-                      <ArrowRight className="w-3 h-3" />
-                    </Button>
-                  </>
-                ) : (
-                  <p className="text-sm text-muted-foreground">Sem mensagens não lidas</p>
                 )}
               </CardContent>
             </Card>
